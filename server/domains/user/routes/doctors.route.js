@@ -61,22 +61,23 @@ const reportUploader = multer({
     storage: reportStorage,
     fileFilter: reportFileFilter
 });
+const verifyToken = require('../middleware/verfiyToken');
 
 router.route("/register").post(avatarUploader, doctorsController.registerDoctor);
 
 router.route("/login").post(doctorsController.loginDoctor);
 
-router.route("/forgotpassword").patch(doctorsController.forgotpassword);
+router.route("/forgotpassword").patch(verifyToken,doctorsController.forgotpassword);
 
-router.route("/myrendezvouspatient").post(doctorsController.getAllRendezvousWithMypatient);
+router.route("/myrendezvouspatient").post(verifyToken,doctorsController.getAllRendezvousWithMypatient);
 
-router.route("/statusRDV").patch(doctorsController.StatusRDV);
+router.route("/statusRDV").patch(verifyToken,doctorsController.StatusRDV);
 
-router.route("/RDVdujour").post(doctorsController.SearchRDVdujour);
+router.route("/RDVdujour").post(verifyToken,doctorsController.SearchRDVdujour);
 
 // Combine all the file upload middleware into a single .post() call
 
-router.route("/infoappoinment").post(
+router.route("/infoappoinment").post(verifyToken,
     reportUploader.fields([
         { name: 'medicalReport', maxCount: 1 },
         { name: 'ECGReport', maxCount: 1 },

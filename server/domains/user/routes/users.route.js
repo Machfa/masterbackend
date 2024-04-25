@@ -30,26 +30,26 @@ const diskStorage = multer.diskStorage({
         storage: diskStorage,
         fileFilter
     });
-
+    const verifyToken = require('../middleware/verfiyToken');
 router.route('/register')
             .post(upload.single('avatar'),usersController.register);
 router.route('/login')
             .post(usersController.login);
  router.route('/forgotpassword')
-            .patch(usersController.forgotpassword);
+            .patch(verifyToken,usersController.forgotpassword);
 router.route('/rendezvous')
-            .post(usersController.rendezvous);
+            .post(verifyToken,usersController.rendezvous);
 router.route('/mydoctorrendezvous')
-            .post(usersController.getAllDoctorsRendezvous);
+            .post(verifyToken,usersController.getAllDoctorsRendezvous);
 router.route('/deleterendezvous')
-            .delete(usersController.deleteRDV);
+            .delete(verifyToken,usersController.deleteRDV);
 router.route('/STSrendezvousUser')
-            .patch(usersController.StatusRDVuser);
+            .patch(verifyToken,usersController.StatusRDVuser);
 router.route("/searchdoctor")
-            .post(usersController.searchDoctors);
+            .post(verifyToken,usersController.searchDoctors);
 router.route("/rendezvoushoursdisponible")
-        .post(usersController.getAvailableTime);
-router.route("/evaluatedoctor")
+        .post(verifyToken,usersController.getAvailableTime);
+router.route(verifyToken,"/evaluatedoctor")
         .patch(usersController.StarEvaluation);
 
 module.exports = router;

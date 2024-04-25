@@ -25,6 +25,9 @@ const doctorSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    token: {
+        type: String
+    },
     role: {
         type: String,
         enum: [userRoles.USER, userRoles.ADMIN, userRoles.DOCTOR],

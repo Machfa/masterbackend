@@ -5,6 +5,8 @@ const Rendezvous = require("../models/rendezvous.model");
 const httpStatusText = require("../utils/httpStatusText");
 const appError = require("../utils/appError");
 const bcrypt = require("bcryptjs");
+const jwt = require('jsonwebtoken');
+const generateJWT = require("../utils/generateJWT");
 const moment = require("moment");
 
 const register = asyncWrapper(async (req, res, next) => {
@@ -38,6 +40,9 @@ const register = asyncWrapper(async (req, res, next) => {
       phoneNumber,
       avatar: avatar
   });
+  // generate JWT token 
+  const token = await generateJWT({email: newUser.email, id: newUser._id, role: newUser.role});
+  newUser.token = token;
   
   await newUser.save();
 
@@ -69,7 +74,11 @@ const login = asyncWrapper(async (req, res, next) => {
 
   if (matchedPassword) {
     // Logged in successfully
-    return res.json({ status: httpStatusText.SUCCESS, data: {} });
+    const token = await generateJWT({email: user.email, id: user._id, role: user.role});
+    user.token = token;
+
+    await user.save();
+    return res.json({ status: httpStatusText.SUCCESS, data: {user} });
   } else {
     const error = appError.create(
       "incorrect password",

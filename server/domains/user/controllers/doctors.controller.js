@@ -4,6 +4,8 @@ const Rendezvous = require('../models/rendezvous.model');
 const httpStatusText = require('../utils/httpStatusText');
 const appError = require('../utils/appError');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const generateJWT = require("../utils/generateJWT");
 
 const loginDoctor = asyncWrapper(async (req, res, next) => {
     const { email, password } = req.body;
@@ -23,6 +25,11 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
     const matchedPassword = await bcrypt.compare(password, doctor.password);
 
     if (matchedPassword) {
+        const token = await generateJWT({email: doctor.email, id: doctor._id, role: doctor.role});
+        doctor.token = token;
+
+        await doctor.save();
+    
         return res.json({ status: httpStatusText.SUCCESS, data: {doctor} });
     } else {
         const error = appError.create('Incorrect password', 401, httpStatusText.FAIL);
@@ -60,6 +67,9 @@ const registerDoctor = asyncWrapper(async (req, res, next) => {
         timings,
         avatar:avatar
     });
+    // generate JWT token 
+    const token = await generateJWT({email: newDoctor.email, id: newDoctor._id, role: newDoctor.role});
+    newDoctor.token = token;
 
     await newDoctor.save();
 
