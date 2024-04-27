@@ -56,7 +56,7 @@ const login = asyncWrapper(async (req, res, next) => {
 
   if (!email || !password) {
     const error = appError.create(
-      "email and password are required",
+      "Email and password are required",
       400,
       httpStatusText.FAIL
     );
@@ -66,28 +66,53 @@ const login = asyncWrapper(async (req, res, next) => {
   const user = await User.findOne({ email: email });
 
   if (!user) {
-    const error = appError.create("user not found", 400, httpStatusText.FAIL);
+    const error = appError.create("User not found", 404, httpStatusText.FAIL);
     return next(error);
   }
 
   const matchedPassword = await bcrypt.compare(password, user.password);
 
   if (matchedPassword) {
-    // Logged in successfully
-    const token = await generateJWT({email: user.email, id: user._id, role: user.role});
+    const token = await generateJWT({ email: user.email, id: user._id, role: user.role });
     user.token = token;
 
     await user.save();
-    return res.json({ status: httpStatusText.SUCCESS, data: {user} });
+
+    // Extract user properties
+    const {
+      _id,
+      firstName,
+      lastName,
+      email,
+      role,
+      createdAt,
+      updatedAt
+    } = user;
+
+    return res.json({
+      status: httpStatusText.SUCCESS,
+      data: {
+        user: {
+          _id,
+          firstName,
+          lastName,
+          email,
+          role,
+          createdAt,
+          updatedAt
+        }
+      }
+    });
   } else {
     const error = appError.create(
-      "incorrect password",
+      "Incorrect password",
       401,
       httpStatusText.FAIL
     );
     return next(error);
   }
 });
+
 
 const forgotpassword = asyncWrapper(async (req, res, next) => {
   const { email, newpassword } = req.body;

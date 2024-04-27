@@ -6,7 +6,6 @@ const appError = require('../utils/appError');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const generateJWT = require("../utils/generateJWT");
-
 const loginDoctor = asyncWrapper(async (req, res, next) => {
     const { email, password } = req.body;
 
@@ -16,7 +15,6 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
     }
 
     const doctor = await Doctor.findOne({ email: email });
-
     if (!doctor) {
         const error = appError.create('Doctor not found', 404, httpStatusText.FAIL);
         return next(error);
@@ -25,17 +23,60 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
     const matchedPassword = await bcrypt.compare(password, doctor.password);
 
     if (matchedPassword) {
-        const token = await generateJWT({email: doctor.email, id: doctor._id, role: doctor.role});
+        const token = await generateJWT({ email: doctor.email, id: doctor._id, role: doctor.role });
         doctor.token = token;
 
         await doctor.save();
-    
-        return res.json({ status: httpStatusText.SUCCESS, data: {doctor} });
+
+        // Extract doctor properties
+        const {
+            _id,
+            firstName,
+            lastName,
+            phoneNumber,
+            email,
+            role,
+            address,
+            specialization,
+            experience,
+            timings,
+            avatar,
+            star,
+            numberOfEvaluations,
+            totalStars,
+            createdAt,
+            updatedAt
+        } = doctor;
+
+        return res.json({
+            status: httpStatusText.SUCCESS,
+            data: {
+                doctor: {
+                    _id,
+                    firstName,
+                    lastName,
+                    phoneNumber,
+                    email,
+                    role,
+                    address,
+                    specialization,
+                    experience,
+                    timings,
+                    avatar,
+                    star,
+                    numberOfEvaluations,
+                    totalStars,
+                    createdAt,
+                    updatedAt
+                }
+            }
+        });
     } else {
         const error = appError.create('Incorrect password', 401, httpStatusText.FAIL);
         return next(error);
     }
 });
+
 
 const registerDoctor = asyncWrapper(async (req, res, next) => {
     const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings } = req.body;
@@ -107,7 +148,7 @@ const getAllRendezvousWithMypatient = asyncWrapper(async (req, res, next) => {
       // Fetch all doctors with their rendezvous for a specific doctorId
       const MyRendezvouspatient = await Rendezvous.find({ doctorId: doctorId });
       //.select('userId date status time'); ;
-  
+      MyRendezvouspatient.sort((a, b) => new Date(a.time) - new Date(b.time));
       res.json({ status: httpStatusText.SUCCESS, data: {MyRendezvouspatient} });
     } catch (error) {
       console.error('Error while fetching doctors with rendezvous:', error);
@@ -157,7 +198,7 @@ const SearchRDVdujour = async (req, res, next) => {
             const error = appError.create('La liste pour ce jour-là n\'existe pas', 404, httpStatusText.FAIL);
             return next(error);
         }
-
+        RDV.sort((a, b) => new Date(a.time) - new Date(b.time));
         res.json({ status: httpStatusText.SUCCESS, data: { RDV } });
     } catch (error) {
         console.error('Error searching rendezvous:', error);
