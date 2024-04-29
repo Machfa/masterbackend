@@ -99,7 +99,8 @@ const login = asyncWrapper(async (req, res, next) => {
           email,
           role,
           createdAt,
-          updatedAt
+          updatedAt,
+          token
         }
       }
     });

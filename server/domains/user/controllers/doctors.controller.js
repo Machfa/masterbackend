@@ -67,7 +67,8 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
                     numberOfEvaluations,
                     totalStars,
                     createdAt,
-                    updatedAt
+                    updatedAt,
+                    token
                 }
             }
         });
