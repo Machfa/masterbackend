@@ -40,15 +40,16 @@ const register = asyncWrapper(async (req, res, next) => {
       phoneNumber,
       avatar: avatar
   });
+  res
+    .status(201)
+    .json({ status: httpStatusText.SUCCESS, data: { user: newUser } });
   // generate JWT token 
   const token = await generateJWT({email: newUser.email, id: newUser._id, role: newUser.role});
   newUser.token = token;
   
   await newUser.save();
 
-  res
-    .status(201)
-    .json({ status: httpStatusText.SUCCESS, data: { user: newUser } });
+  
 });
 
 const login = asyncWrapper(async (req, res, next) => {
@@ -77,6 +78,8 @@ const login = asyncWrapper(async (req, res, next) => {
     user.token = token;
 
     await user.save();
+      // Set token in a cookie
+      res.cookie('token', token, { httpOnly: true });
 
     // Extract user properties
     const {
@@ -99,8 +102,7 @@ const login = asyncWrapper(async (req, res, next) => {
           email,
           role,
           createdAt,
-          updatedAt,
-          token
+          updatedAt
         }
       }
     });
@@ -240,8 +242,8 @@ const rendezvous = async (req, res, next) => {
     }
 
     const date = requestedDate.toISOString();
-    const fromTime = requestedTime.clone().subtract(14, "minutes").toISOString();
-    const toTime = requestedTime.clone().add(14, "minutes").toISOString();
+    const fromTime = requestedTime.clone().subtract(44, "minutes").toISOString();
+    const toTime = requestedTime.clone().add(44, "minutes").toISOString();
 
     const appointments = await Rendezvous.find({
       doctorId,

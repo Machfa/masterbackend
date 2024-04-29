@@ -28,6 +28,9 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
 
         await doctor.save();
 
+        // Set token in a cookie
+        res.cookie('token', token, { httpOnly: true });
+
         // Extract doctor properties
         const {
             _id,
@@ -67,8 +70,7 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
                     numberOfEvaluations,
                     totalStars,
                     createdAt,
-                    updatedAt,
-                    token
+                    updatedAt
                 }
             }
         });
@@ -77,6 +79,7 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
         return next(error);
     }
 });
+
 
 
 const registerDoctor = asyncWrapper(async (req, res, next) => {
@@ -109,13 +112,12 @@ const registerDoctor = asyncWrapper(async (req, res, next) => {
         timings,
         avatar:avatar
     });
+    res.status(201).json({ status: httpStatusText.SUCCESS, data: { doctor: newDoctor } });
     // generate JWT token 
     const token = await generateJWT({email: newDoctor.email, id: newDoctor._id, role: newDoctor.role});
     newDoctor.token = token;
 
     await newDoctor.save();
-
-    res.status(201).json({ status: httpStatusText.SUCCESS, data: { doctor: newDoctor } });
 });
 
 const forgotpassword = asyncWrapper(async (req, res, next) => {
