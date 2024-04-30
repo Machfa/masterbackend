@@ -75,7 +75,9 @@ router.route("/statusRDV").patch(verifyToken,doctorsController.StatusRDV);
 
 router.route("/RDVdujour").post(verifyToken,doctorsController.SearchRDVdujour);
 
-// Combine all the file upload middleware into a single .post() call
+router.route("/pastRDV").post(verifyToken,doctorsController.getAllPastAppointmentsWithPatient);
+
+router.route("/infoparID").post(verifyToken,doctorsController.infoparID);
 
 router.route("/infoappoinment").post(verifyToken,
     reportUploader.fields([

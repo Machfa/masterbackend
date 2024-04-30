@@ -1,6 +1,7 @@
 const asyncWrapper = require("../middleware/asyncWrapper");
 const User = require("../models/user.model");
 const Doctor = require('../models/doctor.model');
+const Comment = require('../models/comment.model');
 const Rendezvous = require("../models/rendezvous.model");
 const httpStatusText = require("../utils/httpStatusText");
 const appError = require("../utils/appError");
@@ -207,6 +208,7 @@ const rendezvous = async (req, res, next) => {
   try {
     const requestedDate = moment(req.body.date, "YYYY-MM-DD");
     const requestedTime = moment(req.body.time, "HH:mm");
+
     const doctorId = req.body.doctorId;
     const doctor = await Doctor.findById(doctorId);
 
@@ -241,20 +243,31 @@ const rendezvous = async (req, res, next) => {
       });
     }
 
-    const date = requestedDate.toISOString();
-    const fromTime = requestedTime.clone().subtract(44, "minutes").toISOString();
-    const toTime = requestedTime.clone().add(44, "minutes").toISOString();
+    const date = requestedDate.toDate();
+    const fromTime = requestedTime.clone().subtract(44, "minutes").toDate();
+    const toTime = requestedTime.clone().add(44, "minutes").toDate();
 
-    const appointments = await Rendezvous.find({
+    // Vérifier si un rendez-vous existe déjà pour le même médecin et le même créneau horaire
+    const existingAppointment = await Rendezvous.findOne({
       doctorId,
       date,
-      time: {
-        $gte: fromTime,
-        $lte: toTime,
-      },
+      $or: [
+        {
+          $and: [
+            { time: { $gte: fromTime } },
+            { time: { $lte: toTime } }
+          ]
+        },
+        {
+          $and: [
+            { time: { $lte: fromTime } },
+            { time: { $gte: toTime } }
+          ]
+        }
+      ]
     });
 
-    if (appointments.length > 0) {
+    if (existingAppointment) {
       return res.status(200).json({
         status: "fail",
         message: "Rendezvous not available at this time",
@@ -269,21 +282,31 @@ const rendezvous = async (req, res, next) => {
       });
     }
 
-    req.body.status = "pending";
-    req.body.avatar = doctor.avatar;
+    // Enregistrer le rendez-vous
     const fullName = `${user.firstName} ${user.lastName}`;
-    req.body.userName = fullName;
+    const avatar = user.avatar;
+    const status = "pending";
 
-    const rendezvousModel = new Rendezvous(req.body);
+    const rendezvousModel = new Rendezvous({
+      userId: req.body.userId,
+      doctorId: req.body.doctorId,
+      date,
+      time: requestedTime.toDate(), // Convertir Moment.js en objet Date
+      status,
+      avatar,
+      userName: fullName
+    });
+
     await rendezvousModel.save();
 
-    // Retrieve the saved rendezvous from the database
-    const savedRendezvous = await Rendezvous.findById(rendezvousModel._id);
+    // Formater la date et l'heure avant de les envoyer dans la réponse JSON
+    rendezvousModel.date = moment(rendezvousModel.date).format("YYYY-MM-DD");
+    rendezvousModel.time = moment(rendezvousModel.time).format("HH:mm");
 
     return res.status(200).json({
       status: "success",
       message: "Rendezvous successfully registered",
-      rendezvous: savedRendezvous, // Include the details of the saved rendezvous in the response
+      rendezvous: rendezvousModel,
     });
   } catch (error) {
     console.error("Error while processing rendezvous:", error);
@@ -293,7 +316,8 @@ const rendezvous = async (req, res, next) => {
       message: "Error processing rendezvous",
     });
   }
-};
+}; 
+
 
 
 
@@ -473,6 +497,98 @@ const getAvailableTime = async (req, res, next) => {
 };
 
 
+const addComment = async (req, res, next) => {
+  try {
+    const { content, doctorId, userId } = req.body;
+    
+    // Créer un nouvel objet de commentaire
+    const newComment = new Comment({ content, doctorId, userId });
+    
+    // Enregistrer le nouveau commentaire dans la base de données
+    await newComment.save();
+
+    // Formater la date au format "YYYY-MM-DD"
+    const formattedDate = moment(newComment.date).format('YYYY-MM-DD');
+    
+    // Envoyer une réponse avec le nouveau commentaire
+    res.status(201).json({
+      status: httpStatusText.SUCCESS,
+      data: {
+        Comment: {
+          ...newComment.toObject(),
+          date: formattedDate
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    const errorMessage = 'Error adding comment';
+    const status = 500; // Internal Server Error
+    const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+    return next(appErrorInstance);
+  }
+};
+
+
+const getAllCommentsForDoctor = async (req, res, next) => {
+  try {
+    const { doctorId, userId } = req.body;
+
+    // Recherchez tous les commentaires pour le médecin spécifié et l'utilisateur spécifié
+    const comments = await Comment.find({ doctorId, userId });
+
+    // Formater les dates des commentaires avant de les envoyer dans la réponse JSON
+    const formattedComments = comments.map(comment => ({
+      content: comment.content,
+      doctorId: comment.doctorId,
+      userId: comment.userId,
+      _id: comment._id,
+      date: moment(comment.date).format('YYYY-MM-DD'), // Formater la date sans l'heure
+    }));
+
+    res.json({
+      status: httpStatusText.SUCCESS,
+      data: {
+        comments: formattedComments // Utiliser les commentaires formatés
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching comments:', error);
+    const errorMessage = 'Error fetching comments';
+    const status = 500; // Internal Server Error
+    const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+    return next(appErrorInstance);
+  }
+};
+
+const deleteComment = async (req, res, next) => {
+  try {
+    const { commentId, doctorId, userId } = req.body;
+
+    // Recherchez le commentaire à supprimer
+    const commentToDelete = await Comment.findOne({ _id: commentId, doctorId, userId });
+
+    if (!commentToDelete) {
+      const error = appError.create('Comment not found', 404, httpStatusText.FAIL);
+      return next(error);
+    }
+
+    // Supprimez le commentaire
+    await commentToDelete.remove();
+
+    res.json({
+      status: httpStatusText.SUCCESS,
+      message: 'Comment deleted successfully',
+      data: {}
+    });
+  } catch (error) {
+    console.error('Error deleting comment:', error);
+    const errorMessage = 'Error deleting comment';
+    const status = 500; // Internal Server Error
+    const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+    return next(appErrorInstance);
+  }
+};
 
 
 
@@ -486,6 +602,9 @@ module.exports = {
   StatusRDVuser,
   searchDoctors,
   getAvailableTime,
-  StarEvaluation
+  StarEvaluation,
+  addComment,
+  getAllCommentsForDoctor,
+  deleteComment
   
 };

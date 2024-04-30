@@ -102,6 +102,97 @@ const deleteDoctor = asyncWrapper(async (req, res, next) => {
       return next(appErrorInstance);
     }
   });
+  const infoparID = asyncWrapper(async (req, res, next) => {
+    const id = req.body._id;
+
+    if (!id) {
+        const error = appError.create('ID is required', 400, httpStatusText.FAIL);
+        return next(error);
+    }
+
+    const doctor = await Doctor.findOne({ _id: id });
+    const user = await User.findOne({ _id: id });
+
+    if (!doctor && !user) {
+        const error = appError.create('ID not found', 404, httpStatusText.FAIL);
+        return next(error);
+    }
+
+    if (doctor) {
+        const {
+            _id,
+            firstName,
+            lastName,
+            phoneNumber,
+            email,
+            role,
+            address,
+            specialization,
+            experience,
+            timings,
+            avatar,
+            star,
+            numberOfEvaluations,
+            totalStars,
+            createdAt,
+            updatedAt
+        } = doctor;
+
+        return res.json({
+            status: httpStatusText.SUCCESS,
+            data: {
+                doctor: {
+                    _id,
+                    firstName,
+                    lastName,
+                    phoneNumber,
+                    email,
+                    role,
+                    address,
+                    specialization,
+                    experience,
+                    timings,
+                    avatar,
+                    star,
+                    numberOfEvaluations,
+                    totalStars,
+                    createdAt,
+                    updatedAt
+                }
+            }
+        });
+    }
+
+    if (user) {
+        // Extract user properties
+        const {
+            _id,
+            firstName,
+            lastName,
+            email,
+            role,
+            createdAt,
+            updatedAt
+        } = user;
+
+        return res.json({
+            status: httpStatusText.SUCCESS,
+            data: {
+                user: {
+                    _id,
+                    firstName,
+                    lastName,
+                    email,
+                    role,
+                    createdAt,
+                    updatedAt
+                }
+            }
+        });
+    }
+});
+
+
   
   
 module.exports ={
@@ -109,5 +200,6 @@ module.exports ={
     getAllUsers,
     getAllRDV,
     deleteDoctor,
-    deleteUser
+    deleteUser,
+    infoparID
 }

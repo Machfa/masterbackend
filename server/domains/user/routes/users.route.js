@@ -36,21 +36,27 @@ router.route('/register')
 router.route('/login')
             .post(usersController.login);
  router.route('/forgotpassword')
-            .patch(verifyToken,usersController.forgotpassword);
+            .patch(/*verifyToken,*/usersController.forgotpassword);
 router.route('/rendezvous')
-            .post(verifyToken,usersController.rendezvous);
+            .post(/*verifyToken,*/usersController.rendezvous);
 router.route('/mydoctorrendezvous')
-            .post(verifyToken,usersController.getAllDoctorsRendezvous);
+            .post(/*verifyToken,*/usersController.getAllDoctorsRendezvous);
 router.route('/deleterendezvous')
-            .delete(verifyToken,usersController.deleteRDV);
+            .delete(/*verifyToken,*/usersController.deleteRDV);
 router.route('/STSrendezvousUser')
-            .patch(verifyToken,usersController.StatusRDVuser);
+            .patch(/*verifyToken,*/usersController.StatusRDVuser);
 router.route("/searchdoctor")
-            .post(verifyToken,usersController.searchDoctors);
+            .post(/*verifyToken,*/usersController.searchDoctors);
 router.route("/rendezvoushoursdisponible")
-        .post(verifyToken,usersController.getAvailableTime);
-router.route(verifyToken,"/evaluatedoctor")
+        .post(/*verifyToken,*/usersController.getAvailableTime);
+router.route(/*verifyToken,*/"/evaluatedoctor")
         .patch(usersController.StarEvaluation);
+router.route("/addComment")
+        .post(/*verifyToken,*/usersController.addComment);
+router.route("/AffComment")
+        .post(/*verifyToken,*/usersController.getAllCommentsForDoctor);
+router.route("/deleteComment")
+        .delete(/*verifyToken,*/usersController.deleteComment);
 
 module.exports = router;
 

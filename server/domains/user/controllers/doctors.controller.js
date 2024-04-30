@@ -1,11 +1,15 @@
 const asyncWrapper = require("../middleware/asyncWrapper");
 const Doctor = require('../models/doctor.model');
+const User = require("../models/user.model");
 const Rendezvous = require('../models/rendezvous.model');
 const httpStatusText = require('../utils/httpStatusText');
 const appError = require('../utils/appError');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const generateJWT = require("../utils/generateJWT");
+const moment = require('moment');
+
+
 const loginDoctor = asyncWrapper(async (req, res, next) => {
     const { email, password } = req.body;
 
@@ -188,20 +192,32 @@ const getAllRendezvousWithMypatient = asyncWrapper(async (req, res, next) => {
     }
 };
 
+
 const SearchRDVdujour = async (req, res, next) => {
     try {
         const { doctorId, date } = req.body;
-        
-        // Utilisez find à la place de findOne pour obtenir un tableau de résultats
-        const RDV = await Rendezvous.find({ doctorId:doctorId
-            , date:date });
 
-        // Vérifiez si la longueur du tableau RDV est zéro
-        if (RDV.length === 0) {
+        // Convertir la date en objet Moment.js
+        const requestedDate = moment(date, "YYYY-MM-DD");
+
+        // Requête pour rechercher les rendez-vous pour la date spécifiée
+        const RDV = await Rendezvous.find({ doctorId, date: requestedDate.toDate() });
+
+        // Vérifier si des rendez-vous ont été trouvés
+        if (!RDV || RDV.length === 0) {
             const error = appError.create('La liste pour ce jour-là n\'existe pas', 404, httpStatusText.FAIL);
             return next(error);
         }
-        RDV.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+        // Formatter les dates dans le tableau RDV en utilisant Moment.js
+        RDV.forEach((rendezvous) => {
+            rendezvous.date = moment(rendezvous.date).format("YYYY-MM-DD");
+            rendezvous.time = moment(rendezvous.time).format("HH:mm");
+        });
+
+        // Trier les rendez-vous par heure
+        RDV.sort((a, b) => moment(a.time, "HH:mm").diff(moment(b.time, "HH:mm")));
+
         res.json({ status: httpStatusText.SUCCESS, data: { RDV } });
     } catch (error) {
         console.error('Error searching rendezvous:', error);
@@ -212,6 +228,8 @@ const SearchRDVdujour = async (req, res, next) => {
         return next(appErrorInstance);
     }
 };
+
+
 
 const userInfoaboutAppoinment = asyncWrapper(async (req, res, next) => {
     try {
@@ -267,8 +285,144 @@ const userInfoaboutAppoinment = asyncWrapper(async (req, res, next) => {
         return next(appErrorInstance);
     }
 });
+const getAllPastAppointmentsWithPatient = asyncWrapper(async (req, res, next) => {
+    try {
+        const doctorId = req.body.doctorId;
+        const userId = req.body.userId;
+
+        // Get the current date
+        const currentDate = moment().startOf('day');
+
+        // Find all past appointments for the specified doctor and user
+        const pastAppointments = await Rendezvous.find({
+            doctorId,
+            userId,
+            date: { $lt: currentDate.toDate() }
+        });
+
+        if (!pastAppointments || pastAppointments.length === 0) {
+            return res.json({
+                status: httpStatusText.SUCCESS,
+                message: 'No past appointments found for this user and doctor.'
+            });
+        }
+
+        // Sort past appointments chronologically by date and time
+        pastAppointments.sort((a, b) => {
+            const dateComparison = moment(a.date, 'DD-MM-YYYY').diff(moment(b.date, 'DD-MM-YYYY'));
+            if (dateComparison !== 0) {
+                return dateComparison;
+            }
+            return moment(a.time, 'HH:mm').diff(moment(b.time, 'HH:mm'));
+        });
+
+        // Format the date and time for each appointment
+        pastAppointments.forEach((appointment) => {
+            appointment.date = moment(appointment.date, 'DD-MM-YYYY').format("YYYY-MM-DD");
+            appointment.time = moment(appointment.time, 'HH:mm').format("HH:mm");
+        });
+
+        res.json({ status: httpStatusText.SUCCESS, data: { pastAppointments } });
+    } catch (error) {
+        console.error('Error while fetching past appointments:', error);
+
+        const errorMessage = 'Error fetching past appointments';
+        const status = 500; // Internal Server Error
+        const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+        return next(appErrorInstance);
+    }
+});
 
 
+const infoparID = asyncWrapper(async (req, res, next) => {
+    const id = req.body._id;
+
+    if (!id) {
+        const error = appError.create('ID is required', 400, httpStatusText.FAIL);
+        return next(error);
+    }
+
+    const doctor = await Doctor.findOne({ _id: id });
+    const user = await User.findOne({ _id: id });
+
+    if (!doctor && !user) {
+        const error = appError.create('ID not found', 404, httpStatusText.FAIL);
+        return next(error);
+    }
+
+    if (doctor) {
+        const {
+            _id,
+            firstName,
+            lastName,
+            phoneNumber,
+            email,
+            role,
+            address,
+            specialization,
+            experience,
+            timings,
+            avatar,
+            star,
+            numberOfEvaluations,
+            totalStars,
+            createdAt,
+            updatedAt
+        } = doctor;
+
+        return res.json({
+            status: httpStatusText.SUCCESS,
+            data: {
+                doctor: {
+                    _id,
+                    firstName,
+                    lastName,
+                    phoneNumber,
+                    email,
+                    role,
+                    address,
+                    specialization,
+                    experience,
+                    timings,
+                    avatar,
+                    star,
+                    numberOfEvaluations,
+                    totalStars,
+                    createdAt,
+                    updatedAt
+                }
+            }
+        });
+    }
+
+    if (user) {
+        // Extract user properties
+        const {
+            _id,
+            firstName,
+            lastName,
+            email,
+            role,
+            createdAt,
+            updatedAt
+        } = user;
+
+        return res.json({
+            status: httpStatusText.SUCCESS,
+            data: {
+                user: {
+                    _id,
+                    firstName,
+                    lastName,
+                    email,
+                    role,
+                    createdAt,
+                    updatedAt
+                }
+            }
+        });
+    }
+});
 
 
 module.exports = {
@@ -278,5 +432,7 @@ module.exports = {
     getAllRendezvousWithMypatient,
     StatusRDV,
     SearchRDVdujour,
-    userInfoaboutAppoinment
+    userInfoaboutAppoinment,
+    getAllPastAppointmentsWithPatient,
+    infoparID
 };

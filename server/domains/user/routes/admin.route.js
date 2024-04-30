@@ -9,6 +9,6 @@ router.route("/doctors").get(adminController.getAllDoctors);
 router.route("/allrendezvous").get(adminController.getAllRDV);
 router.route("/deleteuser").delete(adminController.deleteUser);
 router.route("/deletedoctor").delete(adminController.deleteDoctor);
-
+router.route("/infoparID").post(adminController.infoparID);
 module.exports = router;
 
