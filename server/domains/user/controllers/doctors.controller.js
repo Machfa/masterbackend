@@ -74,7 +74,8 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
                     numberOfEvaluations,
                     totalStars,
                     createdAt,
-                    updatedAt
+                    updatedAt,
+                    token
                 }
             }
         });
@@ -103,6 +104,8 @@ const registerDoctor = asyncWrapper(async (req, res, next) => {
   } else {
     avatar = "../uploads/profile1.png"; // Default avatar if not provided
   }
+  // generate JWT token 
+  const token = await generateJWT({email: newDoctor.email, id: newDoctor._id, role: newDoctor.role});
     const newDoctor = new Doctor({
         firstName,
         lastName,
@@ -114,12 +117,11 @@ const registerDoctor = asyncWrapper(async (req, res, next) => {
         specialization,
         experience,
         timings,
-        avatar:avatar
+        avatar:avatar,
+        token:token
     });
     res.status(201).json({ status: httpStatusText.SUCCESS, data: { doctor: newDoctor } });
-    // generate JWT token 
-    const token = await generateJWT({email: newDoctor.email, id: newDoctor._id, role: newDoctor.role});
-    newDoctor.token = token;
+    
 
     await newDoctor.save();
 });
@@ -403,6 +405,7 @@ const infoparID = asyncWrapper(async (req, res, next) => {
             lastName,
             email,
             role,
+            avatar,
             createdAt,
             updatedAt
         } = user;
@@ -416,6 +419,7 @@ const infoparID = asyncWrapper(async (req, res, next) => {
                     lastName,
                     email,
                     role,
+                    avatar,
                     createdAt,
                     updatedAt
                 }

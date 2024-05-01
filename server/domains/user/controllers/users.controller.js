@@ -32,6 +32,8 @@ const register = asyncWrapper(async (req, res, next) => {
   } else {
     avatar = "../uploads/profile1.png"; // Default avatar if not provided
   }
+  // generate JWT token 
+  const token = await generateJWT({email: newUser.email, id: newUser._id, role: newUser.role});
   const newUser = new User({
       firstName,
       lastName,
@@ -39,14 +41,14 @@ const register = asyncWrapper(async (req, res, next) => {
       password: hashedPassword,
       role,
       phoneNumber,
-      avatar: avatar
+      avatar: avatar,
+      token:token
   });
   res
     .status(201)
     .json({ status: httpStatusText.SUCCESS, data: { user: newUser } });
-  // generate JWT token 
-  const token = await generateJWT({email: newUser.email, id: newUser._id, role: newUser.role});
-  newUser.token = token;
+  
+ // newUser.token = token;
   
   await newUser.save();
 
@@ -103,7 +105,8 @@ const login = asyncWrapper(async (req, res, next) => {
           email,
           role,
           createdAt,
-          updatedAt
+          updatedAt,
+          token
         }
       }
     });
