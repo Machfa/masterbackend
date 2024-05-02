@@ -11,13 +11,13 @@ const generateJWT = require("../utils/generateJWT");
 const moment = require("moment");
 
 const register = asyncWrapper(async (req, res, next) => {
-  const { firstName, lastName, email,role, password,phoneNumber } = req.body;
+  const { firstName, lastName, email, role, password, phoneNumber } = req.body;
 
   const oldUser = await User.findOne({ email: email });
 
   if (oldUser) {
     const error = appError.create(
-      "user already exists",
+      "User already exists",
       400,
       httpStatusText.FAIL
     );
@@ -32,28 +32,28 @@ const register = asyncWrapper(async (req, res, next) => {
   } else {
     avatar = "../uploads/profile1.png"; // Default avatar if not provided
   }
-  // generate JWT token 
-  const token = await generateJWT({email: newUser.email, id: newUser._id, role: newUser.role});
+
+  // Create a new user
   const newUser = new User({
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,
-      role,
-      phoneNumber,
-      avatar: avatar,
-      token:token
+    firstName,
+    lastName,
+    email,
+    password: hashedPassword,
+    role,
+    phoneNumber,
+    avatar: avatar,
   });
-  res
-    .status(201)
-    .json({ status: httpStatusText.SUCCESS, data: { user: newUser } });
-  
- // newUser.token = token;
-  
+
+  // Save the new user to the database
   await newUser.save();
 
-  
+  // Generate JWT token
+  const token = await generateJWT({ email: newUser.email, id: newUser._id, role: newUser.role });
+
+  // Respond with success status and the new user data, excluding the password
+  res.status(201).json({ status: httpStatusText.SUCCESS, data: { user: { ...newUser.toObject(), password: undefined } } });
 });
+
 
 const login = asyncWrapper(async (req, res, next) => {
   const { email, password } = req.body;
