@@ -88,43 +88,70 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
 
 
 const registerDoctor = asyncWrapper(async (req, res, next) => {
-    const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings } = req.body;
+    try {
+        const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings } = req.body;
 
-    const oldDoctor = await Doctor.findOne({ email: email });
+        const oldDoctor = await Doctor.findOne({ email: email });
 
-    if (oldDoctor) {
-        const error = appError.create('Doctor already exists', 400, httpStatusText.FAIL);
-        return next(error);
+        if (oldDoctor) {
+            const error = appError.create('Doctor already exists', 400, httpStatusText.FAIL);
+            return next(error);
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        let avatar;
+        if (req.file) {
+            avatar = req.file.filename;
+        } else {
+            avatar = "../uploads/profile1.png"; // Default avatar if not provided
+        }
+
+        // generate JWT token 
+        const token = await generateJWT({ email, role });
+
+        const newDoctor = new Doctor({
+            firstName,
+            lastName,
+            phoneNumber,
+            email,
+            password: hashedPassword,
+            role,
+            address,
+            specialization,
+            experience,
+            timings,
+            avatar,
+            token // Include token directly in the new doctor object
+        });
+
+        // Save the new doctor to the database
+        await newDoctor.save();
+
+        // Omit password from the doctor object
+        const { password: _, ...doctorData } = newDoctor.toObject();
+
+        // Respond with success status and the new doctor data
+        return res.json({
+            status: httpStatusText.SUCCESS,
+            data: {
+                doctor: {
+                    ...doctorData,
+                    token // Include token in the response
+                }
+            }
+        });
+    } catch (error) {
+        // Handle any errors that might occur during the registration process
+        console.error("Error registering doctor:", error);
+        const errorMessage = "Error registering doctor";
+        const errorResponse = {
+            status: httpStatusText.ERROR,
+            message: errorMessage
+        };
+        return res.status(500).json(errorResponse);
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    let avatar;
-  if (req.file) {
-    avatar = req.file.filename;
-  } else {
-    avatar = "../uploads/profile1.png"; // Default avatar if not provided
-  }
-  // generate JWT token 
-  const token = await generateJWT({email: newDoctor.email, id: newDoctor._id, role: newDoctor.role});
-    const newDoctor = new Doctor({
-        firstName,
-        lastName,
-        phoneNumber,
-        email,
-        password: hashedPassword,
-        role,
-        address,
-        specialization,
-        experience,
-        timings,
-        avatar:avatar,
-        token:token
-    });
-    res.status(201).json({ status: httpStatusText.SUCCESS, data: { doctor: newDoctor } });
-    
-
-    await newDoctor.save();
 });
+
 
 const forgotpassword = asyncWrapper(async (req, res, next) => {
     const { email, newpassword } = req.body;
@@ -157,6 +184,10 @@ const getAllRendezvousWithMypatient = asyncWrapper(async (req, res, next) => {
       // Fetch all doctors with their rendezvous for a specific doctorId
       const MyRendezvouspatient = await Rendezvous.find({ doctorId: doctorId });
       //.select('userId date status time'); ;
+      MyRendezvouspatient.forEach((rendezvous) => {
+        rendezvous.date = moment(rendezvous.date).format("DD-MM-YYYY");
+        rendezvous.time = moment(rendezvous.time).format("HH:mm");
+    });
       MyRendezvouspatient.sort((a, b) => new Date(a.time) - new Date(b.time));
       res.json({ status: httpStatusText.SUCCESS, data: {MyRendezvouspatient} });
     } catch (error) {
@@ -200,7 +231,7 @@ const SearchRDVdujour = async (req, res, next) => {
         const { doctorId, date } = req.body;
 
         // Convertir la date en objet Moment.js
-        const requestedDate = moment(date, "YYYY-MM-DD");
+        const requestedDate = moment(date, "DD-MM-YYYY");
 
         // Requête pour rechercher les rendez-vous pour la date spécifiée
         const RDV = await Rendezvous.find({ doctorId, date: requestedDate.toDate() });
@@ -213,7 +244,7 @@ const SearchRDVdujour = async (req, res, next) => {
 
         // Formatter les dates dans le tableau RDV en utilisant Moment.js
         RDV.forEach((rendezvous) => {
-            rendezvous.date = moment(rendezvous.date).format("YYYY-MM-DD");
+            rendezvous.date = moment(rendezvous.date).format("DD-MM-YYYY");
             rendezvous.time = moment(rendezvous.time).format("HH:mm");
         });
 

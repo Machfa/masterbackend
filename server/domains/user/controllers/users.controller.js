@@ -209,7 +209,7 @@ console.log(searchQuery);
 // Remplacez la fonction rendezvous par bookAppointment
 const rendezvous = async (req, res, next) => {
   try {
-    const requestedDate = moment(req.body.date, "YYYY-MM-DD");
+    const requestedDate = moment(req.body.date, "DD-MM-YYYY");
     const requestedTime = moment(req.body.time, "HH:mm");
 
     const doctorId = req.body.doctorId;
@@ -299,11 +299,10 @@ const rendezvous = async (req, res, next) => {
       avatar,
       userName: fullName
     });
-
     await rendezvousModel.save();
 
     // Formater la date et l'heure avant de les envoyer dans la réponse JSON
-    rendezvousModel.date = moment(rendezvousModel.date).format("YYYY-MM-DD");
+    rendezvousModel.date = moment(rendezvousModel.date).format("DD-MM-YYYY");
     rendezvousModel.time = moment(rendezvousModel.time).format("HH:mm");
 
     return res.status(200).json({
