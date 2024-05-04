@@ -3,6 +3,10 @@ const generateOTP = require("../../util/generateOTP.js");
 const sendEmail = require("../../util/sendEmail.js");
 const { hashData, compareHashedData } = require("../../util/hashing.js");
 
+const fs = require("fs");
+const path = require("path");
+
+
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -47,12 +51,23 @@ const sendOTP = async (req, res) => {
     // Generate OTP
     const generatedOTP = await generateOTP();
 
+    // Load email template
+    const emailTemplatePath = path.join(
+      __dirname,
+      "../../domains/otp/html.html"
+    );
+
+    // Replace placeholder with OTP
+    const emailTemplate = fs.readFileSync(emailTemplatePath, "utf8");
+
+    // Replace placeholder with OTP
+    const emailWithOTP = emailTemplate.replace("{{otp}}", `<h2 class="otp-animation">${generatedOTP}</h2>`);
     // Send OTP via email
     const mailOptions = {
       from: "mashfamashfa3@gmail.com",
       to: email,
       subject: "OTP from Callback Coding",
-      text: `Your OTP is: ${generatedOTP}`,
+      html: emailWithOTP,
     };
     await sendEmail(mailOptions);
 
