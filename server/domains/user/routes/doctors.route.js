@@ -16,7 +16,6 @@ const avatarStorage = multer.diskStorage({
         cb(null, fileName);
     }
 });
-
 const avatarFileFilter = (req, file, cb) => {
     const fileType = file.mimetype.split('/')[0];
 
@@ -27,12 +26,10 @@ const avatarFileFilter = (req, file, cb) => {
         cb(new appError.create('Avatar must be an image', 400), false);
     }
 }
-
 const avatarUploader = multer({
     storage: avatarStorage,
     fileFilter: avatarFileFilter
 }).single('avatar');
-
 // Multer configuration for medical report
 const reportStorage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -44,7 +41,6 @@ const reportStorage = multer.diskStorage({
         cb(null, fileName);
     }
 });
-
 const reportFileFilter = (req, file, cb) => {
     const fileType = file.mimetype.split('/')[0];
 
@@ -55,30 +51,20 @@ const reportFileFilter = (req, file, cb) => {
         cb(new appError.create('Medical report must be an image or a PDF', 400), false);
     }
 }
-
 // Configuration for the upload of medical reports
 const reportUploader = multer({
     storage: reportStorage,
     fileFilter: reportFileFilter
 });
 const verifyToken = require('../middleware/verfiyToken');
-
 router.route("/register").post(avatarUploader, doctorsController.registerDoctor);
-
 router.route("/login").post(doctorsController.loginDoctor);
-
 router.route("/forgotpassword").patch(verifyToken,doctorsController.forgotpassword);
-
 router.route("/myrendezvouspatient").post(verifyToken,doctorsController.getAllRendezvousWithMypatient);
-
 router.route("/statusRDV").patch(verifyToken,doctorsController.StatusRDV);
-
 router.route("/RDVdujour").post(verifyToken,doctorsController.SearchRDVdujour);
-
 router.route("/pastRDV").post(verifyToken,doctorsController.getAllPastAppointmentsWithPatient);
-
 router.route("/infoparID").post(verifyToken,doctorsController.infoparID);
-
 router.route("/infoappoinment").post(verifyToken,
     reportUploader.fields([
         { name: 'medicalReport', maxCount: 1 },
@@ -88,7 +74,9 @@ router.route("/infoappoinment").post(verifyToken,
     ]), 
     doctorsController.userInfoaboutAppoinment
 );
-
-
+router.route("/addComment").post(/*verifyToken,*/doctorsController.addComment);
+router.route("/AffComment").post(/*verifyToken,*/doctorsController.getAllCommentsForDoctor);
+router.route("/deleteComment").delete(/*verifyToken,*/doctorsController.deleteComment);
+router.route("/stats").post(/*verifyToken,*/doctorsController.getDoctorStats);
 
 module.exports = router;

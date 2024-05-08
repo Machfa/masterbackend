@@ -4,6 +4,7 @@ const usersController = require('../controllers/users.controller');
 const appError = require('../utils/appError');
 const { USER } = require('../utils/userRoles');
 const multer  = require('multer');
+const verifyToken = require('../middleware/verfiyToken');
 
 const diskStorage = multer.diskStorage({
         destination: function (req, file, cb) {
@@ -14,8 +15,7 @@ const diskStorage = multer.diskStorage({
             const fileName = `../uploads/user-${Date.now()}.${ext}`;
             cb(null, fileName);
         }
-    })
-    
+    }) 
     const fileFilter = (req, file, cb) => {
         const imageType = file.mimetype.split('/')[0];
         
@@ -25,12 +25,10 @@ const diskStorage = multer.diskStorage({
             return cb(appError.create('file must be an image', 400), false)
         }
     }
-    
     const upload = multer({ 
         storage: diskStorage,
         fileFilter
     });
-    const verifyToken = require('../middleware/verfiyToken');
 router.route('/register')
             .post(upload.single('avatar'),usersController.register);
 router.route('/login')
@@ -48,15 +46,9 @@ router.route('/STSrendezvousUser')
 router.route("/searchdoctor")
             .post(/*verifyToken,*/usersController.searchDoctors);
 router.route("/rendezvoushoursdisponible")
-        .post(/*verifyToken,*/usersController.getAvailableTime);
+            .post(/*verifyToken,*/usersController.getAvailableTime);
 router.route(/*verifyToken,*/"/evaluatedoctor")
-        .patch(usersController.StarEvaluation);
-router.route("/addComment")
-        .post(/*verifyToken,*/usersController.addComment);
-router.route("/AffComment")
-        .post(/*verifyToken,*/usersController.getAllCommentsForDoctor);
-router.route("/deleteComment")
-        .delete(/*verifyToken,*/usersController.deleteComment);
+            .patch(usersController.StarEvaluation);
 
 module.exports = router;
 

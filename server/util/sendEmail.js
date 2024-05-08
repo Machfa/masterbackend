@@ -19,7 +19,6 @@ transporter.verify((error,success) => {
  }
 })
 
-
 const sendEmail = async (mailOptions) => {
   try {
     await transporter.sendMail(mailOptions);

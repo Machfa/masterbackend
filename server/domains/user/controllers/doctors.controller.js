@@ -2,6 +2,7 @@ const asyncWrapper = require("../middleware/asyncWrapper");
 const Doctor = require('../models/doctor.model');
 const User = require("../models/user.model");
 const Rendezvous = require('../models/rendezvous.model');
+const Comment = require('../models/comment.model');
 const httpStatusText = require('../utils/httpStatusText');
 const appError = require('../utils/appError');
 const bcrypt = require('bcryptjs');
@@ -84,9 +85,6 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
         return next(error);
     }
 });
-
-
-
 const registerDoctor = asyncWrapper(async (req, res, next) => {
     try {
         const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings } = req.body;
@@ -151,8 +149,6 @@ const registerDoctor = asyncWrapper(async (req, res, next) => {
         return res.status(500).json(errorResponse);
     }
 });
-
-
 const forgotpassword = asyncWrapper(async (req, res, next) => {
     const { email, newpassword } = req.body;
 
@@ -175,8 +171,6 @@ const forgotpassword = asyncWrapper(async (req, res, next) => {
 
     res.json({ status: httpStatusText.SUCCESS, data: {} });
 });
-
-
 const getAllRendezvousWithMypatient = asyncWrapper(async (req, res, next) => {
     try {
       const doctorId = req.body.doctorId;
@@ -199,7 +193,6 @@ const getAllRendezvousWithMypatient = asyncWrapper(async (req, res, next) => {
       return next(appErrorInstance);
     }
   });
-
   const StatusRDV = async (req, res, next) => {
     try {
         const { _id, status } = req.body; // Corrected the variable name from _Id to _id
@@ -224,8 +217,6 @@ const getAllRendezvousWithMypatient = asyncWrapper(async (req, res, next) => {
         return next(appErrorInstance);
     }
 };
-
-
 const SearchRDVdujour = async (req, res, next) => {
     try {
         const { doctorId, date } = req.body;
@@ -246,6 +237,13 @@ const SearchRDVdujour = async (req, res, next) => {
         RDV.forEach((rendezvous) => {
             rendezvous.date = moment(rendezvous.date).format("DD-MM-YYYY");
             rendezvous.time = moment(rendezvous.time).format("HH:mm");
+
+            // Calculer et mettre à jour le temps restant
+            const currentTime = Date.now();
+            const creationTime = rendezvous.createdAt.getTime();
+            const elapsedTime = currentTime - creationTime;
+            const remainingTime = Math.max(0, 24 * 60 * 60 * 1000 - elapsedTime); // Temps restant de 24 heures à partir de la création
+            rendezvous.timeRemaining = formatTime(remainingTime);
         });
 
         // Trier les rendez-vous par heure
@@ -256,14 +254,33 @@ const SearchRDVdujour = async (req, res, next) => {
         console.error('Error searching rendezvous:', error);
 
         const errorMessage = 'Error searching rendezvous';
-        const status = 500; // Internal Server Error
+        const status = 500; 
         const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
         return next(appErrorInstance);
     }
 };
-
-
-
+const formatTime = (remainingTime) => {
+    const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+  
+    let timeRemainingString = '';
+    if (days > 0) {
+      timeRemainingString += `${days} jour(s) `;
+    }
+    if (hours > 0) {
+      timeRemainingString += `${hours} heure(s) `;
+    }
+    if (minutes > 0) {
+      timeRemainingString += `${minutes} minute(s) `;
+    }
+    if (seconds > 0) {
+      timeRemainingString += `${seconds} seconde(s) `;
+    }
+  
+    return timeRemainingString.trim();
+  };
 const userInfoaboutAppoinment = asyncWrapper(async (req, res, next) => {
     try {
         const _id = req.body._id;
@@ -340,6 +357,12 @@ const getAllPastAppointmentsWithPatient = asyncWrapper(async (req, res, next) =>
             });
         }
 
+        // Format the date and time for each appointment
+        pastAppointments.forEach((rendezvous) => {
+            rendezvous.date = moment(rendezvous.date).format("DD-MM-YYYY");
+            rendezvous.time = moment(rendezvous.time).format("HH:mm");
+        });
+
         // Sort past appointments chronologically by date and time
         pastAppointments.sort((a, b) => {
             const dateComparison = moment(a.date, 'DD-MM-YYYY').diff(moment(b.date, 'DD-MM-YYYY'));
@@ -348,12 +371,7 @@ const getAllPastAppointmentsWithPatient = asyncWrapper(async (req, res, next) =>
             }
             return moment(a.time, 'HH:mm').diff(moment(b.time, 'HH:mm'));
         });
-
-        // Format the date and time for each appointment
-        pastAppointments.forEach((appointment) => {
-            appointment.date = moment(appointment.date, 'DD-MM-YYYY').format("YYYY-MM-DD");
-            appointment.time = moment(appointment.time, 'HH:mm').format("HH:mm");
-        });
+        
 
         res.json({ status: httpStatusText.SUCCESS, data: { pastAppointments } });
     } catch (error) {
@@ -365,8 +383,6 @@ const getAllPastAppointmentsWithPatient = asyncWrapper(async (req, res, next) =>
         return next(appErrorInstance);
     }
 });
-
-
 const infoparID = asyncWrapper(async (req, res, next) => {
     const id = req.body._id;
 
@@ -458,6 +474,143 @@ const infoparID = asyncWrapper(async (req, res, next) => {
         });
     }
 });
+const addComment = async (req, res, next) => {
+    try {
+      const { content, doctorId, userId } = req.body;
+      
+      // Créer un nouvel objet de commentaire
+      const newComment = new Comment({ content, doctorId, userId });
+      
+      // Enregistrer le nouveau commentaire dans la base de données
+      await newComment.save();
+  
+      // Formater la date au format "YYYY-MM-DD"
+      const formattedDate = moment(newComment.date).format('YYYY-MM-DD');
+      
+      // Envoyer une réponse avec le nouveau commentaire
+      res.status(201).json({
+        status: httpStatusText.SUCCESS,
+        data: {
+          Comment: {
+            ...newComment.toObject(),
+            date: formattedDate
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      const errorMessage = 'Error adding comment';
+      const status = 500; // Internal Server Error
+      const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+      return next(appErrorInstance);
+    }
+  };
+  const getAllCommentsForDoctor = async (req, res, next) => {
+    try {
+      const { doctorId, userId } = req.body;
+  
+      // Recherchez tous les commentaires pour le médecin spécifié et l'utilisateur spécifié
+      const comments = await Comment.find({ doctorId, userId });
+  
+      // Formater les dates des commentaires avant de les envoyer dans la réponse JSON
+      const formattedComments = comments.map(comment => ({
+        content: comment.content,
+        doctorId: comment.doctorId,
+        userId: comment.userId,
+        _id: comment._id,
+        date: moment(comment.date).format('YYYY-MM-DD'), // Formater la date sans l'heure
+      }));
+  
+      res.json({
+        status: httpStatusText.SUCCESS,
+        data: {
+          comments: formattedComments // Utiliser les commentaires formatés
+        }
+      });
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+      const errorMessage = 'Error fetching comments';
+      const status = 500; // Internal Server Error
+      const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+      return next(appErrorInstance);
+    }
+  };
+  const deleteComment = async (req, res, next) => {
+    try {
+      const { commentId, doctorId, userId } = req.body;
+  
+      // Recherchez le commentaire à supprimer
+      const commentToDelete = await Comment.findOne({ _id: commentId, doctorId, userId });
+  
+      if (!commentToDelete) {
+        const error = appError.create('Comment not found', 404, httpStatusText.FAIL);
+        return next(error);
+      }
+  
+      // Supprimez le commentaire
+      await commentToDelete.remove();
+  
+      res.json({
+        status: httpStatusText.SUCCESS,
+        message: 'Comment deleted successfully',
+        data: {}
+      });
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      const errorMessage = 'Error deleting comment';
+      const status = 500; // Internal Server Error
+      const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+      return next(appErrorInstance);
+    }
+  };
+  const getDoctorStats = asyncWrapper(async (req, res, next) => {
+    try {
+        const { doctorId, month } = req.body;
+        // Initialiser les compteurs pour les rendez-vous confirmés et annulés
+        let confirmedAppointments = 0;
+        let cancelledAppointments = 0;
+
+        // Convertir le mois en format numérique (0-indexed)
+        const monthIndex = month - 1;
+
+        // Récupérer le premier et le dernier jour du mois
+        const firstDayOfMonth = moment().month(monthIndex).startOf('month').toDate();
+        const lastDayOfMonth = moment().month(monthIndex).endOf('month').toDate();
+
+        // Requête pour récupérer les rendez-vous confirmés pour le mois donné
+        const confirmedRDV = await Rendezvous.find({
+            doctorId,
+            date: { $gte: firstDayOfMonth, $lte: lastDayOfMonth },
+            status: "confirmed"
+        });
+
+        // Requête pour récupérer les rendez-vous annulés pour le mois donné
+        const cancelledRDV = await Rendezvous.find({
+            doctorId,
+            date: { $gte: firstDayOfMonth, $lte: lastDayOfMonth },
+            status: "cancelled"
+        });
+
+        // Mettre à jour les compteurs avec le nombre de rendez-vous trouvés
+        confirmedAppointments = confirmedRDV.length;
+        cancelledAppointments = cancelledRDV.length;
+
+        // Retourner les statistiques
+        res.json({
+            status: httpStatusText.SUCCESS,
+            data: {
+                confirmedAppointments,
+                cancelledAppointments
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching doctor statistics:', error);
+        const errorMessage = 'Error fetching doctor statistics';
+        const status = 500; // Internal Server Error
+        const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+        return next(appErrorInstance);
+    }
+});
 
 
 module.exports = {
@@ -469,5 +622,9 @@ module.exports = {
     SearchRDVdujour,
     userInfoaboutAppoinment,
     getAllPastAppointmentsWithPatient,
-    infoparID
+    infoparID, 
+    addComment,
+    getAllCommentsForDoctor,
+    deleteComment,
+    getDoctorStats
 };

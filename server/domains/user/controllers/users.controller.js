@@ -1,7 +1,6 @@
 const asyncWrapper = require("../middleware/asyncWrapper");
 const User = require("../models/user.model");
 const Doctor = require('../models/doctor.model');
-const Comment = require('../models/comment.model');
 const Rendezvous = require("../models/rendezvous.model");
 const httpStatusText = require("../utils/httpStatusText");
 const appError = require("../utils/appError");
@@ -9,6 +8,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require('jsonwebtoken');
 const generateJWT = require("../utils/generateJWT");
 const moment = require("moment");
+
 
 const register = asyncWrapper(async (req, res, next) => {
   const { firstName, lastName, email, role, password, phoneNumber } = req.body;
@@ -53,8 +53,6 @@ const register = asyncWrapper(async (req, res, next) => {
   // Respond with success status and the new user data, excluding the password
   res.status(201).json({ status: httpStatusText.SUCCESS, data: { user: { ...newUser.toObject(), password: undefined } } });
 });
-
-
 const login = asyncWrapper(async (req, res, next) => {
   const { email, password } = req.body;
 
@@ -119,8 +117,6 @@ const login = asyncWrapper(async (req, res, next) => {
     return next(error);
   }
 });
-
-
 const forgotpassword = asyncWrapper(async (req, res, next) => {
   const { email, newpassword } = req.body;
 
@@ -148,7 +144,6 @@ const forgotpassword = asyncWrapper(async (req, res, next) => {
 
   res.json({ status: httpStatusText.SUCCESS, data: {} });
 });
-
 const StarEvaluation = asyncWrapper(async (req, res, next) => {
   const { newstar, _id } = req.body;
 
@@ -180,7 +175,6 @@ const StarEvaluation = asyncWrapper(async (req, res, next) => {
       return next(appErrorInstance);
   }
 });
-
 const searchDoctors = asyncWrapper(async (req, res, next) => {
     const { searchQuery } = req.body;
 console.log(searchQuery);
@@ -205,8 +199,6 @@ console.log(searchQuery);
         res.json({ status: httpStatusText.SUCCESS, data: { doctors } });
     }
 });
-
-// Remplacez la fonction rendezvous par bookAppointment
 const rendezvous = async (req, res, next) => {
   try {
     const requestedDate = moment(req.body.date, "DD-MM-YYYY");
@@ -305,10 +297,11 @@ const rendezvous = async (req, res, next) => {
     rendezvousModel.date = moment(rendezvousModel.date).format("DD-MM-YYYY");
     rendezvousModel.time = moment(rendezvousModel.time).format("HH:mm");
 
+    schedulePaymentCheck(rendezvousModel._id);
     return res.status(200).json({
       status: "success",
       message: "Rendezvous successfully registered",
-      rendezvous: rendezvousModel,
+      rendezvous: rendezvousModel
     });
   } catch (error) {
     console.error("Error while processing rendezvous:", error);
@@ -320,9 +313,27 @@ const rendezvous = async (req, res, next) => {
   }
 }; 
 
+const schedulePaymentCheck = async (rendezvousId) => {
+  try {
+    await delay( 24 * 60 * 60 * 1000 ); // Attendre 30 secondes
 
+    // Vérifier le statut du rendez-vous
+    const rendezvous = await Rendezvous.findById(rendezvousId);
+    if (rendezvous.status === "pending") {
+      // Mettre à jour le statut du rendez-vous en "cancelled"
+      rendezvous.status = "cancelled";
+      await rendezvous.save();
+    }
 
+  } catch (error) {
+    console.error("Error while checking payment status:", error);
+    return 0; // En cas d'erreur, retourner 0 pour le temps restant
+  }
+};
 
+const delay = (ms) => {
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
 const StatusRDVuser = async (req, res, next) => {
   try {
     const { _id, status } = req.body; // Corrected the variable name from _Id to _id
@@ -355,7 +366,6 @@ const StatusRDVuser = async (req, res, next) => {
     return next(appErrorInstance);
   }
 };
-
 const getAllDoctorsRendezvous = asyncWrapper(async (req, res, next) => {
   try {
     const userId = req.body.userId;
@@ -385,7 +395,6 @@ const getAllDoctorsRendezvous = asyncWrapper(async (req, res, next) => {
     return next(appErrorInstance);
   }
 });
-
 const deleteRDV = asyncWrapper(async (req, res, next) => {
   const { userId, doctorId } = req.body;
 
@@ -434,7 +443,6 @@ const deleteRDV = asyncWrapper(async (req, res, next) => {
     return next(appErrorInstance);
   }
 });
-
 const getAvailableTime = async (req, res, next) => {
   const { doctorId, requestedDate } = req.body;
   try {
@@ -498,102 +506,6 @@ const getAvailableTime = async (req, res, next) => {
   }
 };
 
-
-const addComment = async (req, res, next) => {
-  try {
-    const { content, doctorId, userId } = req.body;
-    
-    // Créer un nouvel objet de commentaire
-    const newComment = new Comment({ content, doctorId, userId });
-    
-    // Enregistrer le nouveau commentaire dans la base de données
-    await newComment.save();
-
-    // Formater la date au format "YYYY-MM-DD"
-    const formattedDate = moment(newComment.date).format('YYYY-MM-DD');
-    
-    // Envoyer une réponse avec le nouveau commentaire
-    res.status(201).json({
-      status: httpStatusText.SUCCESS,
-      data: {
-        Comment: {
-          ...newComment.toObject(),
-          date: formattedDate
-        }
-      }
-    });
-  } catch (error) {
-    console.error('Error adding comment:', error);
-    const errorMessage = 'Error adding comment';
-    const status = 500; // Internal Server Error
-    const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
-    return next(appErrorInstance);
-  }
-};
-
-
-const getAllCommentsForDoctor = async (req, res, next) => {
-  try {
-    const { doctorId, userId } = req.body;
-
-    // Recherchez tous les commentaires pour le médecin spécifié et l'utilisateur spécifié
-    const comments = await Comment.find({ doctorId, userId });
-
-    // Formater les dates des commentaires avant de les envoyer dans la réponse JSON
-    const formattedComments = comments.map(comment => ({
-      content: comment.content,
-      doctorId: comment.doctorId,
-      userId: comment.userId,
-      _id: comment._id,
-      date: moment(comment.date).format('YYYY-MM-DD'), // Formater la date sans l'heure
-    }));
-
-    res.json({
-      status: httpStatusText.SUCCESS,
-      data: {
-        comments: formattedComments // Utiliser les commentaires formatés
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching comments:', error);
-    const errorMessage = 'Error fetching comments';
-    const status = 500; // Internal Server Error
-    const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
-    return next(appErrorInstance);
-  }
-};
-
-const deleteComment = async (req, res, next) => {
-  try {
-    const { commentId, doctorId, userId } = req.body;
-
-    // Recherchez le commentaire à supprimer
-    const commentToDelete = await Comment.findOne({ _id: commentId, doctorId, userId });
-
-    if (!commentToDelete) {
-      const error = appError.create('Comment not found', 404, httpStatusText.FAIL);
-      return next(error);
-    }
-
-    // Supprimez le commentaire
-    await commentToDelete.remove();
-
-    res.json({
-      status: httpStatusText.SUCCESS,
-      message: 'Comment deleted successfully',
-      data: {}
-    });
-  } catch (error) {
-    console.error('Error deleting comment:', error);
-    const errorMessage = 'Error deleting comment';
-    const status = 500; // Internal Server Error
-    const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
-    return next(appErrorInstance);
-  }
-};
-
-
-
 module.exports = {
   register,
   login,
@@ -604,9 +516,5 @@ module.exports = {
   StatusRDVuser,
   searchDoctors,
   getAvailableTime,
-  StarEvaluation,
-  addComment,
-  getAllCommentsForDoctor,
-  deleteComment
-  
+  StarEvaluation
 };

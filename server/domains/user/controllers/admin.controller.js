@@ -12,23 +12,18 @@ const getAllDoctors = asyncWrapper(async (req, res) => {
 
     res.json({ status: httpStatusText.SUCCESS, data: { doctors } });
 });
-
-
 const getAllUsers = asyncWrapper(async (req, res) => {
     // Get all users from DB using User Model
     const users = await User.find({}, { password: 0, __v: 0 }); // Exclude password and __v fields
 
     res.json({ status: httpStatusText.SUCCESS, data: { users } });
 });
-
-
 const getAllRDV = asyncWrapper(async (req, res) => {
   // Get all users from DB using User Model
   const RDV = await Rendezvous.find({}); // Exclude password and __v fields
 
   res.json({ status: httpStatusText.SUCCESS, data: { RDV } });
 });
-
 const deleteDoctor = asyncWrapper(async (req, res, next) => {
     const { email, password } = req.body;
   
@@ -64,9 +59,7 @@ const deleteDoctor = asyncWrapper(async (req, res, next) => {
       const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
       return next(appErrorInstance);
     }
-  });
-  
-
+});
   const deleteUser = asyncWrapper(async (req, res, next) => {
     const { email, password } = req.body;
   
@@ -101,11 +94,7 @@ const deleteDoctor = asyncWrapper(async (req, res, next) => {
       const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
       return next(appErrorInstance);
     }
-  });
-
-
-
-  
+});
   
 module.exports ={
     getAllDoctors,
