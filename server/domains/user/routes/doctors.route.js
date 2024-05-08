@@ -74,9 +74,9 @@ router.route("/infoappoinment").post(verifyToken,
     ]), 
     doctorsController.userInfoaboutAppoinment
 );
-router.route("/addComment").post(/*verifyToken,*/doctorsController.addComment);
-router.route("/AffComment").post(/*verifyToken,*/doctorsController.getAllCommentsForDoctor);
-router.route("/deleteComment").delete(/*verifyToken,*/doctorsController.deleteComment);
-router.route("/stats").post(/*verifyToken,*/doctorsController.getDoctorStats);
+router.route("/addComment").post(verifyToken,doctorsController.addComment);
+router.route("/AffComment").post(verifyToken,doctorsController.getAllCommentsForDoctor);
+router.route("/deleteComment").delete(verifyToken,doctorsController.deleteComment);
+router.route("/stats").post(verifyToken,doctorsController.getDoctorStats);
 
 module.exports = router;

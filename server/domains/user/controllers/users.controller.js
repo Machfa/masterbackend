@@ -11,7 +11,7 @@ const moment = require("moment");
 
 
 const register = asyncWrapper(async (req, res, next) => {
-  const { firstName, lastName, email, role, password, phoneNumber } = req.body;
+  const { firstName, lastName, email, role, password, phoneNumber, gender } = req.body;
 
   const oldUser = await User.findOne({ email: email });
 
@@ -42,6 +42,7 @@ const register = asyncWrapper(async (req, res, next) => {
     role,
     phoneNumber,
     avatar: avatar,
+    gender 
   });
 
   // Save the new user to the database
@@ -53,6 +54,7 @@ const register = asyncWrapper(async (req, res, next) => {
   // Respond with success status and the new user data, excluding the password
   res.status(201).json({ status: httpStatusText.SUCCESS, data: { user: { ...newUser.toObject(), password: undefined } } });
 });
+
 const login = asyncWrapper(async (req, res, next) => {
   const { email, password } = req.body;
 
@@ -89,6 +91,7 @@ const login = asyncWrapper(async (req, res, next) => {
       lastName,
       email,
       role,
+      gender,
       createdAt,
       updatedAt
     } = user;
@@ -102,6 +105,7 @@ const login = asyncWrapper(async (req, res, next) => {
           lastName,
           email,
           role,
+          gender,
           createdAt,
           updatedAt,
           token

@@ -321,6 +321,7 @@ const userInfoaboutAppoinment = asyncWrapper(async (req, res, next) => {
                 rendezvous.Bloodtest = req.files['Bloodtest'][0].filename;
             }
         }
+        rendezvous.doctorAttended=true;
 
         // Save the updated rendezvous document
         await rendezvous.save();
@@ -563,44 +564,109 @@ const addComment = async (req, res, next) => {
       return next(appErrorInstance);
     }
   };
+
   const getDoctorStats = asyncWrapper(async (req, res, next) => {
     try {
-        const { doctorId, month } = req.body;
-        // Initialiser les compteurs pour les rendez-vous confirmés et annulés
+        const { doctorId, year, month } = req.body;
         let confirmedAppointments = 0;
         let cancelledAppointments = 0;
+        let genderStats = { child: 0, man: 0, woman: 0 };
 
-        // Convertir le mois en format numérique (0-indexed)
-        const monthIndex = month - 1;
+        const monthIndex = month - 2;
 
-        // Récupérer le premier et le dernier jour du mois
-        const firstDayOfMonth = moment().month(monthIndex).startOf('month').toDate();
-        const lastDayOfMonth = moment().month(monthIndex).endOf('month').toDate();
+        // Récupérer le premier et le dernier jour du mois en fonction de l'année et du mois
+        const firstDayOfMonth = moment({ year, month: monthIndex }).startOf('month').toDate();
+        const lastDayOfMonth = moment({ year, month: monthIndex }).endOf('month').toDate();
 
-        // Requête pour récupérer les rendez-vous confirmés pour le mois donné
-        const confirmedRDV = await Rendezvous.find({
+        const allRDV = await Rendezvous.find({
             doctorId,
             date: { $gte: firstDayOfMonth, $lte: lastDayOfMonth },
-            status: "confirmed"
         });
 
-        // Requête pour récupérer les rendez-vous annulés pour le mois donné
-        const cancelledRDV = await Rendezvous.find({
-            doctorId,
-            date: { $gte: firstDayOfMonth, $lte: lastDayOfMonth },
-            status: "cancelled"
-        });
+        // Filtrer les rendez-vous confirmés et annulés pour le mois donné
+        const confirmedRDV = allRDV.filter(rdv => rdv.status === "confirmed");
+        const cancelledRDV = allRDV.filter(rdv => rdv.status === "cancelled");
 
-        // Mettre à jour les compteurs avec le nombre de rendez-vous trouvés
         confirmedAppointments = confirmedRDV.length;
         cancelledAppointments = cancelledRDV.length;
+
+        // Total des rendez-vous pour le mois donné
+        const totalAppointmentsPerMonth = allRDV.length;
+        const pendingAppointments = totalAppointmentsPerMonth - (confirmedAppointments + cancelledAppointments);
+
+        // Total des rendez-vous pour toute l'année
+        let totalAppointmentsYear = 0;
+        let EarningStatictic = {};
+
+        // Calculer le nombre total de rendez-vous pour chaque mois de l'année
+        for (let m = 1; m <= 12; m++) {
+            const firstDay = moment({ year, month: m - 2 }).startOf('month').toDate();
+            const lastDay = moment({ year, month: m - 2 }).endOf('month').toDate();
+
+            const RDV = await Rendezvous.find({
+                doctorId,
+                date: { $gte: firstDay, $lte: lastDay },
+            });
+
+            const appointmentsCount = RDV.length;
+            totalAppointmentsYear += appointmentsCount;
+            EarningStatictic[m] = appointmentsCount;
+
+            // Calculer les statistiques basées sur le genre
+            RDV.forEach(rdv => {
+                if (rdv.gender === 'child') {
+                    genderStats.child++;
+                } else if (rdv.gender === 'man') {
+                    genderStats.man++;
+                } else if (rdv.gender === 'woman') {
+                    genderStats.woman++;
+                }
+            });
+        }
+        for (let m = 1; m <= 12; m++) {
+            // Calculer le pourcentage de rendez-vous par rapport au total annuel
+            EarningStatictic[m] = totalAppointmentsYear > 0 ? ((EarningStatictic[m] / totalAppointmentsYear) * 100).toFixed(2) : '0.0';
+        }
+        // Calculer les pourcentages des rendez-vous confirmés et annulés pour le mois donné
+        const percentageConfirmedAppointments = ((confirmedAppointments / totalAppointmentsPerMonth) * 100).toFixed(2);
+        const percentageCancelledAppointments = ((cancelledAppointments / totalAppointmentsPerMonth) * 100).toFixed(2);
+        const percentagePendingAppointments = ((pendingAppointments / totalAppointmentsPerMonth) * 100).toFixed(2);
+
+        // Calculer les pourcentages des rendez-vous en fonction du genre
+        const totalGenderRDV = genderStats.child + genderStats.man + genderStats.woman;
+        const percentageChild = ((genderStats.child / totalGenderRDV) * 100).toFixed(2);
+        const percentageMan = ((genderStats.man / totalGenderRDV) * 100).toFixed(2);
+        const percentageWoman = ((genderStats.woman / totalGenderRDV) * 100).toFixed(2);
 
         // Retourner les statistiques
         res.json({
             status: httpStatusText.SUCCESS,
             data: {
                 confirmedAppointments,
-                cancelledAppointments
+                cancelledAppointments,
+                pendingAppointments,
+                totalAppointmentsPerMonth,
+                totalAppointmentsYear
+            },
+            stats: {
+                percentageConfirmedAppointments,
+                percentageCancelledAppointments,
+                percentagePendingAppointments,
+                EarningStatictic,
+                genderStats: {
+                    child: {
+                        count: genderStats.child,
+                        percentage: percentageChild
+                    },
+                    man: {
+                        count: genderStats.man,
+                        percentage: percentageMan
+                    },
+                    woman: {
+                        count: genderStats.woman,
+                        percentage: percentageWoman
+                    }
+                }
             }
         });
     } catch (error) {

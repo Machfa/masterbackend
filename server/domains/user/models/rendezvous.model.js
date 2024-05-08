@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const rendezvousSchema = new mongoose.Schema(
   {
+    doctorAttended: {
+      type: Boolean,
+      default: false, 
+    },
     userId: {
       type: String,
       required: true,
