@@ -55,7 +55,59 @@ const sendOTP = async (req, res) => {
   }
 };
 
-const sendBierPayement = async (req, res) => {
+const verifyOTP = async (email, otp) => {
+  try {
+    if (!email || !otp) {
+      throw new Error("Provide values for email and otp");
+    }
+
+    const otpRecord = await OTP.findOne({ email });
+
+    if (!otpRecord) {
+      throw new Error("OTP record not found");
+    }
+
+    const { otp: hashedOTP } = otpRecord;
+
+    const isMatch = await compareHashedData(otp, hashedOTP);
+
+    return isMatch;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+const verifyOTPss = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      throw new Error("Provide values for email and otp");
+    }
+
+    const otpRecord = await OTP.findOne({ email });
+
+    if (!otpRecord) {
+      throw new Error("OTP record not found");
+    }
+
+    const { createdAt, otp: hashedOTP } = otpRecord;
+
+    // Checking expired OTP code
+    if (Date.now() > createdAt) {
+      await OTP.deleteOne({ email });
+      throw new Error("OTP expired");
+    }
+
+    const isMatch = await compareHashedData(otp, hashedOTP);
+console.log(isMatch);
+    res.status(200).json({ validateOTP: isMatch });
+  } catch (error) {
+    res.status(400).send(error.message);
+  }
+};
+
+
+const sendBierPayementss = async (req, res) => {
   try {
     const { email,RDVid } = req.body;
 
@@ -90,34 +142,37 @@ const sendBierPayement = async (req, res) => {
   }
 };
 
-const verifyOTP = async (req, res) => {
+const sendBierPayement = async (email,RDVid) => {
   try {
-    const { email, otp } = req.body;
 
-    if (!email || !otp) {
-      throw new Error("Provide values for email and otp");
+    if (!email) {
+      throw new Error("Email is required");
     }
 
-    const otpRecord = await OTP.findOne({ email });
+    // Load email template
+    const emailTemplatePath = path.join(
+      __dirname,
+      "../../domains/otp/html.html"
+    );
 
-    if (!otpRecord) {
-      throw new Error("OTP record not found");
-    }
+    // Replace placeholder with OTP
+    const emailTemplate = fs.readFileSync(emailTemplatePath, "utf8");
 
-    const { createdAt, otp: hashedOTP } = otpRecord;
+    // Replace placeholder with OTP
+    const emailWithToken = emailTemplate.replace("{{otp}}", `<h2 class="otp-animation">${RDVid}</h2>`);
+    // Send OTP via email
+    const mailOptions = {
+      from: "mashfamashfa3@gmail.com",
+      to: email,
+      subject: "OTP from Callback Coding",
+      html: emailWithToken,
+    };
+    await sendEmail(mailOptions);
 
-    // Checking expired OTP code
-    if (Date.now() > createdAt) {
-      await OTP.deleteOne({ email });
-      throw new Error("OTP expired");
-    }
-
-    const isMatch = await compareHashedData(otp, hashedOTP);
-
-    res.status(200).json({ validateOTP: isMatch });
+    return true;
   } catch (error) {
     res.status(400).send(error.message);
   }
 };
 
-module.exports = { sendOTP, verifyOTP,sendBierPayement };
+module.exports = { sendOTP, verifyOTP,sendBierPayement,verifyOTPss,sendBierPayementss };

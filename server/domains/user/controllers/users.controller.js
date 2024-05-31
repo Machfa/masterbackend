@@ -8,10 +8,13 @@ const bcrypt = require("bcryptjs");
 const jwt = require('jsonwebtoken');
 const generateJWT = require("../utils/generateJWT");
 const moment = require("moment");
-
+const { verifyOTP } = require("../../otp/controller.js");
+const { sendBierPayement } = require("../../otp/controller.js");
 
 const register = asyncWrapper(async (req, res, next) => {
-  const { firstName, lastName, email, role, password, phoneNumber, gender } = req.body;
+  const { firstName, lastName, email, role, password, phoneNumber, gender,otp } = req.body;
+
+  await verifyOTP(email,otp);
 
   const oldUser = await User.findOne({ email: email });
 
@@ -42,7 +45,7 @@ const register = asyncWrapper(async (req, res, next) => {
     role,
     phoneNumber,
     avatar: avatar,
-    gender 
+    gender
   });
 
   // Save the new user to the database
@@ -301,7 +304,8 @@ const rendezvous = async (req, res, next) => {
     rendezvousModel.date = moment(rendezvousModel.date).format("DD-MM-YYYY");
     rendezvousModel.time = moment(rendezvousModel.time).format("HH:mm");
 
-    schedulePaymentCheck(rendezvousModel._id);
+    // await getAvailableTime(req, res, next);
+     schedulePaymentCheck(rendezvousModel._id);
     return res.status(200).json({
       status: "success",
       message: "Rendezvous successfully registered",
@@ -319,12 +323,13 @@ const rendezvous = async (req, res, next) => {
 
 const schedulePaymentCheck = async (rendezvousId) => {
   try {
-    await delay( 24 * 60 * 60 * 1000 ); // Attendre 30 secondes
+    await delay( 2 * 24 * 60 * 60 * 1000);
 
     // Vérifier le statut du rendez-vous
     const rendezvous = await Rendezvous.findById(rendezvousId);
     if (rendezvous.status === "pending") {
-      // Mettre à jour le statut du rendez-vous en "cancelled"
+       //await rendezvous.deleteOne(id)
+       //await Rendezvous.deleteOne({ _id: rendezvousId });
       rendezvous.status = "cancelled";
       await rendezvous.save();
     }
@@ -332,6 +337,50 @@ const schedulePaymentCheck = async (rendezvousId) => {
   } catch (error) {
     console.error("Error while checking payment status:", error);
     return 0; // En cas d'erreur, retourner 0 pour le temps restant
+  }
+};
+const sendBierdepay = async (req,res,next) => {
+  try {
+ // Obtenez le prix du rendez-vous à partir de la requête
+ const { email,rendezvousId, cardName, price } = req.body;
+
+ // Mettez à jour le statut du rendez-vous en "done"
+ const rendezvous = await Rendezvous.findById(rendezvousId);
+ if (!rendezvous) {
+   return res.status(404).json({ error: "Rendezvous not found" });
+ }
+// Envoyez le bon de paiement par e-mail
+await sendBierPayement(email, rendezvousId);
+
+res.status(200).json("bier is sent successfuly");
+  } catch (error) {
+    console.error("Error sending bier de payement:", error);
+    return 0; // En cas d'erreur, retourner 0 pour le temps restant
+  }
+};
+
+const makePayment = async (req, res, next) => {
+  try {
+    // Obtenez le prix du rendez-vous à partir de la requête
+    const { rendezvousId, cardName, price } = req.body;
+
+    // Mettez à jour le statut du rendez-vous en "done"
+    const rendezvous = await Rendezvous.findById(rendezvousId);
+    if (!rendezvous) {
+      return res.status(404).json({ error: "Rendezvous not found" });
+    }
+    rendezvous.status = "done";
+    await rendezvous.save();
+
+    // Renvoyez la réponse avec les détails du paiement
+    res.status(200).json({
+      token: rendezvousId,
+      price: price,
+      rendezvousId: rendezvousId,
+      cardName: cardName
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Payment failed" });
   }
 };
 
@@ -426,8 +475,6 @@ const deleteRDV = asyncWrapper(async (req, res, next) => {
       );
       return next(error);
     }
-
-    // Ensure that RDV.toObject() returns a Mongoose document
     const rdvDocument = RDV.toObject();
     await RDV.deleteOne({ _id: rdvDocument._id });
     res.json({
@@ -448,64 +495,65 @@ const deleteRDV = asyncWrapper(async (req, res, next) => {
   }
 });
 const getAvailableTime = async (req, res, next) => {
-  const { doctorId, requestedDate } = req.body;
   try {
+    const requestedDate = moment(req.body.date, "DD-MM-YYYY");
+    const doctorId = req.body.doctorId;
     const doctor = await Doctor.findById(doctorId);
 
     if (!doctor) {
-      throw new Error("Doctor not found");
+      return res.status(404).json({
+        status: "fail",
+        message: "Doctor not found",
+      });
     }
 
-    // Formater la date dans un format ISO ou RFC2822 reconnu par Moment.js
-    const formattedDate = moment(requestedDate, "DD-MM-YYYY").toISOString();
-
-    const dayOfWeek = moment(formattedDate).format("dddd");
-
-    const matchingDay = doctor.timings.find(
-      (timing) => timing.day === dayOfWeek
-    );
+    const dayOfWeek = requestedDate.format("dddd");
+    const matchingDay = doctor.timings.find((timing) => timing.day === dayOfWeek);
 
     if (!matchingDay) {
-      throw new Error(`Doctor is not available on ${dayOfWeek}`);
+      return res.status(200).json({
+        status: "fail",
+        message: `Doctor is not available on ${dayOfWeek}. Please choose another day.`,
+        availableDays: doctor.timings.map((timing) => timing.day),
+      });
     }
 
-    const workingHours = matchingDay.hours;
-
+    // Récupérer tous les rendez-vous existants pour ce médecin à cette date
     const existingAppointments = await Rendezvous.find({
       doctorId,
-      date: formattedDate, // Utilisez la date formatée ici
+      date: requestedDate.toDate()
     });
 
-    const ALLTimeSlots = existingAppointments.map((appointment) =>
-      moment(appointment.time).format("HH:mm")
-    );
-
-    const availableTimeSlots = [];
-    const timeInterval = 15; // in minutes
-
-    for (let i = 0; i < workingHours.length; i++) {
-      const start = moment(workingHours[i].start, "HH:mm");
-      const end = moment(workingHours[i].end, "HH:mm");
-
+    // Créer une liste de tous les créneaux horaires pour cette journée
+    const allTimeSlots = [];
+    matchingDay.hours.forEach(hour => {
+      const start = moment(hour.start, "HH:mm");
+      const end = moment(hour.end, "HH:mm");
       while (start.isBefore(end)) {
-        const timeSlot = start.format("HH:mm");
-        const isAvailable = !ALLTimeSlots.includes(timeSlot);
-
-        availableTimeSlots.push({ time: timeSlot, available: isAvailable });
-
-        start.add(timeInterval, "minutes");
+        allTimeSlots.push(start.clone().format("HH:mm"));
+        start.add(15, 'minutes'); // Ajustez l'intervalle de temps selon vos besoins
       }
-    }
+    });
 
-    return res.json({
-      status: httpStatusText.SUCCESS,
-      data: { availableTimeSlots },
+    // Marquer les créneaux horaires comme disponibles ou non disponibles
+    const availableTimes = allTimeSlots.map(time => {
+      const isAvailable = !existingAppointments.some(appointment => {
+        const appointmentTime = moment(appointment.time).format("HH:mm");
+        return appointmentTime === time;
+      });
+      return { time, isAvailable };
+    });
+
+    return res.status(200).json({
+      status: "success",
+      availableTimes
     });
   } catch (error) {
-    console.error("Error while getting available time slots:", error);
+    console.error("Error while processing available times:", error);
+
     return res.status(500).json({
       status: "fail",
-      message: "Error getting available time slots",
+      message: "Error processing available times",
     });
   }
 };
@@ -520,5 +568,7 @@ module.exports = {
   StatusRDVuser,
   searchDoctors,
   getAvailableTime,
-  StarEvaluation
+  StarEvaluation,
+  makePayment,
+  sendBierdepay
 };

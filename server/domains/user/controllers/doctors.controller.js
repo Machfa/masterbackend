@@ -87,8 +87,9 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
 });
 const registerDoctor = asyncWrapper(async (req, res, next) => {
     try {
-        const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings } = req.body;
-
+        const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings,otp } = req.body;
+        await verifyOTP(email,otp);
+        
         const oldDoctor = await Doctor.findOne({ email: email });
 
         if (oldDoctor) {
@@ -549,7 +550,7 @@ const addComment = async (req, res, next) => {
       }
   
       // Supprimez le commentaire
-      await commentToDelete.remove();
+      await commentToDelete.deleteOne();
   
       res.json({
         status: httpStatusText.SUCCESS,

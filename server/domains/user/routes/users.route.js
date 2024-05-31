@@ -49,6 +49,10 @@ router.route("/rendezvoushoursdisponible")
             .post(/*verifyToken,*/usersController.getAvailableTime);
 router.route(/*verifyToken,*/"/evaluatedoctor")
             .patch(usersController.StarEvaluation);
+router.route('/payement')
+            .post(usersController.makePayment);
+            router.route('/payementbier')
+            .post(usersController.sendBierdepay);
 
 module.exports = router;
 
