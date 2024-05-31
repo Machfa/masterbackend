@@ -87,8 +87,7 @@ const loginDoctor = asyncWrapper(async (req, res, next) => {
 });
 const registerDoctor = asyncWrapper(async (req, res, next) => {
     try {
-        const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings,otp } = req.body;
-        await verifyOTP(email,otp);
+        const { firstName, lastName, phoneNumber, email, password, role, address, specialization, experience, timings,gender,price } = req.body;
         
         const oldDoctor = await Doctor.findOne({ email: email });
 
@@ -120,6 +119,8 @@ const registerDoctor = asyncWrapper(async (req, res, next) => {
             experience,
             timings,
             avatar,
+            gender,
+            price,
             token // Include token directly in the new doctor object
         });
 
@@ -194,7 +195,7 @@ const getAllRendezvousWithMypatient = asyncWrapper(async (req, res, next) => {
       return next(appErrorInstance);
     }
   });
-  const StatusRDV = async (req, res, next) => {
+const StatusRDV = async (req, res, next) => {
     try {
         const { _id, status } = req.body; // Corrected the variable name from _Id to _id
         const RDV = await Rendezvous.findByIdAndUpdate(
@@ -565,7 +566,6 @@ const addComment = async (req, res, next) => {
       return next(appErrorInstance);
     }
   };
-
   const getDoctorStats = asyncWrapper(async (req, res, next) => {
     try {
         const { doctorId, year, month } = req.body;

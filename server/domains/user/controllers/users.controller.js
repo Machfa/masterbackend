@@ -182,7 +182,7 @@ const StarEvaluation = asyncWrapper(async (req, res, next) => {
       return next(appErrorInstance);
   }
 });
-const searchDoctors = asyncWrapper(async (req, res, next) => {
+const searchDoctorss = asyncWrapper(async (req, res, next) => {
     const { searchQuery } = req.body;
 console.log(searchQuery);
     if (!searchQuery) {
@@ -205,6 +205,54 @@ console.log(searchQuery);
     } else {
         res.json({ status: httpStatusText.SUCCESS, data: { doctors } });
     }
+});
+const searchDoctors = asyncWrapper(async (req, res, next) => {
+  const { searchQuery, gender, specializations, rating, price } = req.body;
+
+  // Construction dynamique du filtre de recherche
+  let filter = {};
+
+  // Ajout du filtre de recherche textuelle
+  if (searchQuery) {
+      const searchRegex = new RegExp(searchQuery, 'i');
+      filter.$or = [
+          { firstName: searchRegex },
+          { lastName: searchRegex },
+          { specialization: searchRegex }
+      ];
+  }
+
+  // Ajout du filtre de genre
+  if (gender) {
+      filter.gender = gender;
+  }
+
+  // Ajout du filtre de spécialités
+  if (specializations && specializations.length > 0) {
+      filter.specialization = { $in: specializations };
+  }
+
+  // Ajout du filtre de note
+  if (rating) {
+      filter.rating = { $gte: rating };
+  }
+
+  // Ajout du filtre de prix
+  if (price) {
+      filter.price = { $lte: price }; // Par exemple, pour chercher des docteurs avec un prix inférieur ou égal à la valeur donnée
+  }
+
+  try {
+      const doctors = await Doctor.find(filter);
+
+      if (doctors.length === 0) {
+          return res.json({ status: httpStatusText.SUCCESS, message: 'No doctors found with the provided search query' });
+      } else {
+          res.json({ status: httpStatusText.SUCCESS, data: { doctors } });
+      }
+  } catch (error) {
+      return next(appError.create('Error while searching for doctors', 500, httpStatusText.FAIL));
+  }
 });
 const rendezvous = async (req, res, next) => {
   try {
@@ -320,7 +368,6 @@ const rendezvous = async (req, res, next) => {
     });
   }
 }; 
-
 const schedulePaymentCheck = async (rendezvousId) => {
   try {
     await delay( 2 * 24 * 60 * 60 * 1000);
