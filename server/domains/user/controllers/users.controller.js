@@ -58,6 +58,39 @@ const register = asyncWrapper(async (req, res, next) => {
   res.status(201).json({ status: httpStatusText.SUCCESS, data: { user: { ...newUser.toObject(), password: undefined } } });
 });
 
+const sendParEmail = asyncWrapper(async (req, res, next) => {
+  try {
+    // Extract the parameters from the request body
+    const {
+      email,
+      RDVid,
+      customerName,
+      customerType,
+      address,
+      meterNumber,
+      amount,
+      tax,
+      operator
+    } = req.body;
+
+    // Ensure all required fields are provided
+    if (!email || !RDVid || !customerName || !customerType || !address || !meterNumber || !amount || !tax || !operator) {
+      const error = new Error("All fields are required");
+      error.status = 400;
+      throw error;
+    }
+
+    // Call the sendBierPayement function
+    await sendBierPayement(email, RDVid, customerName, customerType, address, meterNumber, amount, tax, operator);
+
+    // Respond with success status
+    res.status(200).json({ status: "success", message: "Email sent successfully" });
+  } catch (error) {
+    // Handle errors
+    res.status(error.status || 500).json({ status: "fail", message: error.message });
+  }
+});
+
 const login = asyncWrapper(async (req, res, next) => {
   const { email, password } = req.body;
 
@@ -617,5 +650,6 @@ module.exports = {
   getAvailableTime,
   StarEvaluation,
   makePayment,
-  sendBierdepay
+  sendBierdepay,
+  sendParEmail
 };

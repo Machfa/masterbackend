@@ -142,7 +142,7 @@ const sendBierPayementss = async (req, res) => {
   }
 };
 
-const sendBierPayement = async (email,RDVid) => {
+const sendBierPayements = async (email,RDVid) => {
   try {
 
     if (!email) {
@@ -174,5 +174,46 @@ const sendBierPayement = async (email,RDVid) => {
     res.status(400).send(error.message);
   }
 };
+
+const sendBierPayement = async (email, RDVid, customerName, customerType, address, meterNumber, amount, tax, operator) => {
+  try {
+    if (!email) {
+      throw new Error("Email is required");
+    }
+
+    // Load email template
+    const emailTemplatePath = path.join(__dirname, "../../domains/otp/html2.html");
+    const emailTemplate = fs.readFileSync(emailTemplatePath, "utf8");
+    const total=amount+tax;
+    // Replace placeholders with actual values
+    const emailWithToken = emailTemplate
+    .replace("{{date}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + new Date().toLocaleDateString())
+    .replace("{{time}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + new Date().toLocaleTimeString())
+    .replace("{{tokenType}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + "Credit")
+    .replace("{{customerName}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + customerName)
+    .replace("{{customerType}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + customerType)
+    .replace("{{address}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + address.replace('\n', '<br>'))
+    .replace("{{meterNumber}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + meterNumber)
+    .replace("{{amount}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + amount + " DA")
+    .replace("{{tax}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + tax + " DA")
+    .replace("{{total}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + total + " DA")
+    .replace("{{operator}}", "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" + operator)
+    .replace("{{RDVid}}", "&nbsp;&nbsp;&nbsp;&nbsp;<h2 class=\"otp-animation\">" + RDVid + "</h2>");
+
+    // Send email
+    const mailOptions = {
+      from: "mashfamashfa3@gmail.com",
+      to: email,
+      subject: "Payment Receipt",
+      html: emailWithToken,
+    };
+    await sendEmail(mailOptions);
+
+    return true;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
 
 module.exports = { sendOTP, verifyOTP,sendBierPayement,verifyOTPss,sendBierPayementss };

@@ -51,8 +51,10 @@ router.route(/*verifyToken,*/"/evaluatedoctor")
             .patch(usersController.StarEvaluation);
 router.route('/payement')
             .post(usersController.makePayment);
-            router.route('/payementbier')
+router.route('/payementbier')
             .post(usersController.sendBierdepay);
+router.route('/sendbierdepayement')
+            .post(usersController.sendParEmail);
 
 module.exports = router;
 
