@@ -56,14 +56,6 @@ const rendezvousSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    gender: {
-      type: String,
-      required: true,
-    },
-    price: {
-      type: String,
-      required: true,
-    },
     status: {
       type: String,
       required: true,
@@ -78,51 +70,6 @@ const rendezvousSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// Utilisation d'un hook pre-save pour mettre à jour le champ timeRemaining avant chaque sauvegarde du document
-/*rendezvousSchema.pre('find', async function() {
-  try {
-    // Récupérer les documents trouvés par la recherche
-    const RDV = await this.model.find(this.getFilter());
-
-    // Mettre à jour le champ timeRemaining pour chaque document trouvé
-    RDV.forEach(rendezvous => {
-      const currentTime = Date.now();
-      const creationTime = rendezvous.createdAt.getTime();
-      const elapsedTime = currentTime - creationTime;
-      const remainingTime = Math.max(0, 24 * 60 * 60 * 1000 - elapsedTime); // Temps restant de 24 heures à partir de la création
-      rendezvous.timeRemaining = formatTime(remainingTime);
-    });
-  } catch (error) {
-    console.error("Error while updating timeRemaining:", error);
-  }
-});*/
-
-
-
-// Formatage du temps restant en une représentation lisible par l'homme
-/*const formatTime = (remainingTime) => {
-  const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
-
-  let timeRemainingString = '';
-  if (days > 0) {
-    timeRemainingString += `${days} jour(s) `;
-  }
-  if (hours > 0) {
-    timeRemainingString += `${hours} heure(s) `;
-  }
-  if (minutes > 0) {
-    timeRemainingString += `${minutes} minute(s) `;
-  }
-  if (seconds > 0) {
-    timeRemainingString += `${seconds} seconde(s) `;
-  }
-
-  return timeRemainingString.trim();
-};*/
 
 
 module.exports = mongoose.model("Rendezvous", rendezvousSchema);

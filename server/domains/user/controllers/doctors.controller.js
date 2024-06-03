@@ -10,7 +10,7 @@ const jwt = require('jsonwebtoken');
 const generateJWT = require("../utils/generateJWT");
 const moment = require('moment');
 
-
+  
 const loginDoctor = asyncWrapper(async (req, res, next) => {
     const { email, password } = req.body;
 

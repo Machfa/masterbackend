@@ -11,6 +11,153 @@ const moment = require("moment");
 const { verifyOTP } = require("../../otp/controller.js");
 const { sendBierPayement } = require("../../otp/controller.js");
 
+const addfavouriteDoctor = asyncWrapper(async (req, res, next) => {
+  const { userId, doctorId } = req.body;
+
+  if (!userId || !doctorId) {
+    const error = appError.create(
+      "userId and doctorId are required",
+      400,
+      httpStatusText.FAIL
+    );
+    return next(error);
+  }
+
+  try {
+    // Find the user by id
+    const user = await User.findById(userId);
+
+    if (!user) {
+      const error = appError.create(
+        "User not found",
+        404,
+        httpStatusText.FAIL
+      );
+      return next(error);
+    }
+
+    // Find the doctor by id
+    const doctor = await Doctor.findById(doctorId);
+
+    if (!doctor) {
+      const error = appError.create(
+        "Doctor not found",
+        404,
+        httpStatusText.FAIL
+      );
+      return next(error);
+    }
+
+    // Check if the doctor is already in the user's favorite list
+    const isFavourite = user.favourites.includes(doctorId);
+
+    if (isFavourite) {
+      return res.status(200).json({
+        status: httpStatusText.SUCCESS,
+        message: "Doctor is already in the favorite list",
+        data: {},
+      });
+    }
+
+    // Add the doctor to the user's favorite list
+    user.favourites.push(doctorId);
+
+    // Save the updated user
+    await user.save();
+
+    res.status(200).json({
+      status: httpStatusText.SUCCESS,
+      message: "Doctor added to favorite list successfully",
+      data: { favourites: user.favourites },
+    });
+  } catch (error) {
+    console.error("Error adding favorite doctor:", error);
+    const errorMessage = "Error adding favorite doctor";
+    const status = 500; // Internal Server Error
+    const appErrorInstance = appError.create(
+      errorMessage,
+      status,
+      httpStatusText.FAIL
+    );
+    return next(appErrorInstance);
+  }
+});
+const deleteFavouriteDoctor = asyncWrapper(async (req, res, next) => {
+  const { userId, doctorId } = req.body;
+
+  if (!userId || !doctorId) {
+    const error = appError.create(
+      "userId and doctorId are required",
+      400,
+      httpStatusText.FAIL
+    );
+    return next(error);
+  }
+
+  try {
+    const user = await User.findById(userId);
+
+    if (!user) {
+      const error = appError.create("User not found", 404, httpStatusText.FAIL);
+      return next(error);
+    }
+
+    const index = user.favourites.indexOf(doctorId);
+
+    if (index === -1) {
+      // Doctor not found in favourites
+      return res.status(200).json({
+        status: httpStatusText.SUCCESS,
+        message: "Doctor is not in the favourite list",
+        data: {},
+      });
+    }
+
+    // Remove the doctor from favourites array
+    user.favourites.splice(index, 1);
+    await user.save();
+
+    res.status(200).json({
+      status: httpStatusText.SUCCESS,
+      message: "Doctor removed from favourite list successfully",
+      data: { favourites: user.favourites },
+    });
+  } catch (error) {
+    console.error("Error deleting favourite doctor:", error);
+    return next(appError.create("Error deleting favourite doctor", 500, httpStatusText.FAIL));
+  }
+});
+const getFavouriteDoctors = asyncWrapper(async (req, res, next) => {
+  const userId = req.body.userId;
+
+  if (!userId) {
+    const error = appError.create(
+      "User ID is required",
+      400,
+      httpStatusText.FAIL
+    );
+    return next(error);
+  }
+
+  try {
+    const user = await User.findById(userId).populate('favourites');
+
+    if (!user) {
+      const error = appError.create("User not found", 404, httpStatusText.FAIL);
+      return next(error);
+    }
+
+    res.json({
+      status: httpStatusText.SUCCESS,
+      data: {
+        favourites: user.favourites
+      }
+    });
+  } catch (error) {
+    console.error("Error while fetching favourite doctors:", error);
+    return next(appError.create("Error fetching favourite doctors", 500, httpStatusText.FAIL));
+  }
+});
 const register = asyncWrapper(async (req, res, next) => {
   const { firstName, lastName, email, role, password, phoneNumber, gender,otp } = req.body;
 
@@ -287,7 +434,7 @@ const searchDoctors = asyncWrapper(async (req, res, next) => {
       return next(appError.create('Error while searching for doctors', 500, httpStatusText.FAIL));
   }
 });
-const rendezvous = async (req, res, next) => {
+const rendezvous= async (req, res, next) => {
   try {
     const requestedDate = moment(req.body.date, "DD-MM-YYYY");
     const requestedTime = moment(req.body.time, "HH:mm");
@@ -327,8 +474,8 @@ const rendezvous = async (req, res, next) => {
     }
 
     const date = requestedDate.toDate();
-    const fromTime = requestedTime.clone().subtract(44, "minutes").toDate();
-    const toTime = requestedTime.clone().add(44, "minutes").toDate();
+    const fromTime = requestedTime.clone().subtract(14, "minutes").toDate();
+    const toTime = requestedTime.clone().add(14, "minutes").toDate();
 
     // Vérifier si un rendez-vous existe déjà pour le même médecin et le même créneau horaire
     const existingAppointment = await Rendezvous.findOne({
@@ -401,6 +548,8 @@ const rendezvous = async (req, res, next) => {
     });
   }
 }; 
+
+
 const schedulePaymentCheck = async (rendezvousId) => {
   try {
     await delay( 2 * 24 * 60 * 60 * 1000);
@@ -409,8 +558,8 @@ const schedulePaymentCheck = async (rendezvousId) => {
     const rendezvous = await Rendezvous.findById(rendezvousId);
     if (rendezvous.status === "pending") {
        //await rendezvous.deleteOne(id)
-       //await Rendezvous.deleteOne({ _id: rendezvousId });
-      rendezvous.status = "cancelled";
+       await Rendezvous.deleteOne({ _id: rendezvousId });
+      //rendezvous.status = "cancelled";
       await rendezvous.save();
     }
 
@@ -651,5 +800,8 @@ module.exports = {
   StarEvaluation,
   makePayment,
   sendBierdepay,
-  sendParEmail
+  sendParEmail,
+  addfavouriteDoctor,
+  getFavouriteDoctors,
+  deleteFavouriteDoctor
 };

@@ -55,6 +55,12 @@ router.route('/payementbier')
             .post(usersController.sendBierdepay);
 router.route('/sendbierdepayement')
             .post(usersController.sendParEmail);
+router.route('/addfavouriteDoctor')
+            .post(usersController.addfavouriteDoctor);
+router.route('/getfavouriteDoctor')
+            .post(usersController.getFavouriteDoctors);
+router.route('/deleteFavouriteDoctor')
+            .delete(usersController.deleteFavouriteDoctor);
 
 module.exports = router;
 

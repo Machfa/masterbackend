@@ -2,45 +2,65 @@ const mongoose = require("mongoose");
 const validator = require("validator");
 const userRoles = require("../utils/userRoles");
 
-const userSchema = new mongoose.Schema({
+// Définition du schéma utilisateur
+const UserSchema = new mongoose.Schema({
   firstName: {
     type: String,
-    required: true,
+    required: true
   },
   lastName: {
     type: String,
-    required: true,
+    required: true
   },
   email: {
     type: String,
     required: true,
-    unique: true,
-    validate: [validator.isEmail, "filed must be a valid email address"],
+    unique: true
   },
   password: {
     type: String,
     required: true,
   },
-  token: {
-    type: String
-},
   role: {
-    type: String, // ["USER", "ADMIN", "MANGER"]
-    enum: [userRoles.USER, userRoles.ADMIN, userRoles.MANGER],
-    default: userRoles.USER,
+    type: String,
+    default: 'user'
   },
   phoneNumber: {
     type: String,
     required: true,
   },
-  gender: {
-    type: String,
-    required: true,
-  },
   avatar: {
     type: String,
-    default: "../uploads/profile1.png",
-}
+    default: '../uploads/profile1.png',
+  },
+  gender: {
+    type: String,
+    required: true
+  },
+  favourites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Doctor'
+  }],
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  token: {
+    type: String,
+  }
 });
 
-module.exports = mongoose.model("User", userSchema);
+// Middleware pour mettre à jour le champ updatedAt avant de sauvegarder
+UserSchema.pre('save', function(next) {
+  this.updatedAt = Date.now();
+  next();
+});
+
+// Création et exportation du modèle User
+const User = mongoose.model('User', UserSchema);
+module.exports = User;
+
