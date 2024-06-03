@@ -10,7 +10,107 @@ const jwt = require('jsonwebtoken');
 const generateJWT = require("../utils/generateJWT");
 const moment = require('moment');
 
-  
+const getPendingRendezvousForDoctor = asyncWrapper(async (req, res, next) => {
+    try {
+        const doctorId = req.body.doctorId;
+
+        if (!doctorId) {
+            const error = appError.create('Doctor ID is required', 400, httpStatusText.FAIL);
+            return next(error);
+        }
+
+        // Find all pending rendezvous for the specified doctor
+        const pendingRendezvous = await Rendezvous.find({ doctorId: doctorId, status: 'pending' });
+
+        if (!pendingRendezvous || pendingRendezvous.length === 0) {
+            return res.json({
+                status: httpStatusText.SUCCESS,
+                message: 'No pending rendezvous found for this doctor.',
+                data: []
+            });
+        }
+
+        // Format the date and time for each rendezvous
+        const formattedRendezvous = pendingRendezvous.map(rendezvous => ({
+            ...rendezvous.toObject(),
+            date: moment(rendezvous.date).format("DD-MM-YYYY"),
+            time: moment(rendezvous.time).format("HH:mm")
+        }));
+
+        // Sort the pending rendezvous chronologically by date and time
+        formattedRendezvous.sort((a, b) => {
+            const dateComparison = moment(a.date, 'DD-MM-YYYY').diff(moment(b.date, 'DD-MM-YYYY'));
+            if (dateComparison !== 0) {
+                return dateComparison;
+            }
+            return moment(a.time, 'HH:mm').diff(moment(b.time, 'HH:mm'));
+        });
+
+        res.json({
+            status: httpStatusText.SUCCESS,
+            data: { pendingRendezvous: formattedRendezvous }
+        });
+    } catch (error) {
+        console.error('Error fetching pending rendezvous:', error);
+        const errorMessage = 'Error fetching pending rendezvous';
+        const status = 500; // Internal Server Error
+        const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+        return next(appErrorInstance);
+    }
+});
+const searchPendingAppointments = asyncWrapper(async (req, res, next) => {
+    try {
+        const { doctorId, userName } = req.body;
+
+        if (!doctorId) {
+            const error = appError.create('Doctor ID is required', 400, httpStatusText.FAIL);
+            return next(error);
+        }
+
+        // Build query object based on provided criteria
+        let query = { doctorId, status: 'pending' };
+
+        if (userName) {
+            query.userName = new RegExp(userName, 'i');
+        }
+
+        // Fetch all pending appointments for the specific doctor and optional patient name
+        const pendingAppointments = await Rendezvous.find(query);
+
+        if (!pendingAppointments || pendingAppointments.length === 0) {
+            return res.json({
+                status: httpStatusText.SUCCESS,
+                message: 'No pending appointments found for this doctor with the given patient name.',
+                data: []
+            });
+        }
+
+        // Format the date and time for each appointment
+        pendingAppointments.forEach((appointment) => {
+            appointment.date = moment(appointment.date).format("DD-MM-YYYY");
+            appointment.time = moment(appointment.time).format("HH:mm");
+        });
+
+        // Sort pending appointments chronologically by date and time
+        pendingAppointments.sort((a, b) => {
+            const dateComparison = moment(a.date, 'DD-MM-YYYY').diff(moment(b.date, 'DD-MM-YYYY'));
+            if (dateComparison !== 0) {
+                return dateComparison;
+            }
+            return moment(a.time, 'HH:mm').diff(moment(b.time, 'HH:mm'));
+        });
+
+        res.json({ status: httpStatusText.SUCCESS, data: { pendingAppointments } });
+    } catch (error) {
+        console.error('Error while searching pending appointments:', error);
+
+        const errorMessage = 'Error searching pending appointments';
+        const status = 500; // Internal Server Error
+        const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+        return next(appErrorInstance);
+    }
+});
+
 const loginDoctor = asyncWrapper(async (req, res, next) => {
     const { email, password } = req.body;
 
@@ -678,7 +778,48 @@ const addComment = async (req, res, next) => {
         return next(appErrorInstance);
     }
 });
-
+const changeAppointmentStatusToDone = asyncWrapper(async (req, res, next) => {
+    try {
+        const { appointmentId, userId } = req.body;
+  
+        if (!appointmentId) {
+            const error = appError.create('Appointment ID is required', 400, httpStatusText.FAIL);
+            return next(error);
+        }
+  
+        if (!userId) {
+            const error = appError.create('User ID is required', 400, httpStatusText.FAIL);
+            return next(error);
+        }
+  
+        // Find the appointment by ID and user ID, then update its status to "done"
+        const appointment = await Rendezvous.findOneAndUpdate(
+            { _id: appointmentId, userId: userId, status: 'pending' },
+            { status: 'done' },
+            { new: true } // Return the updated document
+        );
+  
+        if (!appointment) {
+            return res.json({
+                status: httpStatusText.FAIL,
+                message: 'Appointment not found or already completed.'
+            });
+        }
+  
+        res.json({
+            status: httpStatusText.SUCCESS,
+            message: 'Appointment status updated to done successfully.',
+            data: appointment
+        });
+    } catch (error) {
+        console.error('Error while updating appointment status:', error);
+  
+        const errorMessage = 'Error updating appointment status';
+        const status = 500; // Internal Server Error
+        const appErrorInstance = appError.create(errorMessage, status, httpStatusText.FAIL);
+        return next(appErrorInstance);
+    }
+  });
 
 module.exports = {
     registerDoctor,
@@ -693,5 +834,8 @@ module.exports = {
     addComment,
     getAllCommentsForDoctor,
     deleteComment,
-    getDoctorStats
+    getDoctorStats,
+    getPendingRendezvousForDoctor,
+    searchPendingAppointments,
+    changeAppointmentStatusToDone
 };

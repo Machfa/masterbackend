@@ -61,6 +61,5 @@ router.route('/getfavouriteDoctor')
             .post(usersController.getFavouriteDoctors);
 router.route('/deleteFavouriteDoctor')
             .delete(usersController.deleteFavouriteDoctor);
-
 module.exports = router;
 

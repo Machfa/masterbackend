@@ -78,5 +78,7 @@ router.route("/addComment").post(verifyToken,doctorsController.addComment);
 router.route("/AffComment").post(verifyToken,doctorsController.getAllCommentsForDoctor);
 router.route("/deleteComment").delete(verifyToken,doctorsController.deleteComment);
 router.route("/stats").post(verifyToken,doctorsController.getDoctorStats);
-
+router.route("/getPendingRendezvous").post(doctorsController.getPendingRendezvousForDoctor);
+router.route("/searchuserinpending").post(doctorsController.searchPendingAppointments);
+router.route('/changeAppointmentStatusToDone').post(doctorsController.changeAppointmentStatusToDone);
 module.exports = router;

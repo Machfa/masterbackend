@@ -612,7 +612,6 @@ const makePayment = async (req, res, next) => {
     res.status(500).json({ error: "Payment failed" });
   }
 };
-
 const delay = (ms) => {
   return new Promise(resolve => setTimeout(resolve, ms));
 };
@@ -786,6 +785,7 @@ const getAvailableTime = async (req, res, next) => {
     });
   }
 };
+
 
 module.exports = {
   register,
